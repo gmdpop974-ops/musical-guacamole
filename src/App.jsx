@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Heart, Droplet, Dumbbell, Wind, Smile, 
-  Flame, CheckCircle, RefreshCw, Sparkles, Apple
+  Flame, CheckCircle, RefreshCw, Sparkles, Apple, Lock, Crown, Coffee, ShieldCheck
 } from 'lucide-react';
 
 export default function App() {
@@ -13,13 +13,17 @@ export default function App() {
   const [breathePhase, setBreathePhase] = useState('Prêt ?');
   const [breatheCountdown, setBreatheCountdown] = useState(4);
   const [completedWorkouts, setCompletedWorkouts] = useState([]);
+  
+  // État pour simuler le statut Premium
+  const [isPremium, setIsPremium] = useState(false);
+  const [showPaywallModal, setShowPaywallModal] = useState(false);
 
   const quotes = [
-    "Chaque petit effort quotidien façonne la version extraordinaire de demain.",
-    "Votre corps peut tout supporter, c'est votre esprit qu'il faut convaincre.",
-    "La discipline, c'est choisir entre ce que vous voulez maintenant et ce que vous voulez le plus.",
-    "Prendre soin de soi n'est pas un luxe, c'est une nécessité absolue.",
-    "Le succès n'est pas final, l'échec n'est pas fatal : c'est le courage de continuer qui compte."
+    { text: "Chaque petit effort quotidien façonne la version extraordinaire de demain.", premium: false },
+    { text: "Votre corps peut tout supporter, c'est votre esprit qu'il faut convaincre.", premium: false },
+    { text: "La discipline, c'est choisir entre ce que vous voulez maintenant et ce que vous voulez le plus.", premium: true },
+    { text: "Prendre soin de soi n'est pas un luxe, c'est une nécessité absolue.", premium: true },
+    { text: "Le succès n'est pas final, l'échec n'est pas fatal : c'est le courage de continuer qui compte.", premium: true }
   ];
 
   useEffect(() => {
@@ -56,17 +60,67 @@ export default function App() {
     }
   };
 
+  const handleNextMindset = () => {
+    const nextIndex = (mindsetIndex + 1) % quotes.length;
+    if (quotes[nextIndex].premium && !isPremium) {
+      setShowPaywallModal(true);
+    } else {
+      setMindsetIndex(nextIndex);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans">
-      <header className="bg-slate-800/80 backdrop-blur border-b border-slate-700 p-4 sticky top-0 z-50 flex justify-between items-center">
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans relative">
+      
+      {/* Modal de passage au Premium */}
+      {showPaywallModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl relative animate-in fade-in zoom-in duration-200">
+            <div className="w-12 h-12 bg-amber-500/20 text-amber-400 rounded-2xl mx-auto flex items-center justify-center mb-4 border border-amber-500/30">
+              <Crown className="w-6 h-6" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Débloquez LifeSync Premium</h3>
+            <p className="text-slate-300 text-sm mb-6">
+              Accédez à tous les mindsets exclusifs, aux programmes d'entraînement avancés et soutenez le projet !
+            </p>
+            <div className="space-y-2">
+              <button
+                onClick={() => {
+                  setIsPremium(true);
+                  setShowPaywallModal(false);
+                }}
+                className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold py-3 rounded-xl transition shadow-lg shadow-amber-500/20"
+              >
+                Passer Premium (Simulé)
+              </button>
+              <button
+                onClick={() => setShowPaywallModal(false)}
+                className="w-full bg-slate-700 hover:bg-slate-600 text-slate-300 py-2.5 rounded-xl transition text-sm"
+              >
+                Plus tard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* En-tête */}
+      <header className="bg-slate-800/80 backdrop-blur border-b border-slate-700 p-4 sticky top-0 z-45 flex justify-between items-center">
         <div className="flex items-center space-x-2">
           <div className="bg-gradient-to-tr from-emerald-500 to-teal-400 p-2 rounded-xl text-slate-900 shadow-lg shadow-emerald-500/20">
             <Sparkles className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
-              LifeSync
-            </h1>
+            <div className="flex items-center space-x-2">
+              <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
+                LifeSync
+              </h1>
+              {isPremium && (
+                <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center">
+                  <Crown className="w-3 h-3 mr-1" /> PRO
+                </span>
+              )}
+            </div>
             <p className="text-xs text-slate-400">Votre coach bien-être & mindset</p>
           </div>
         </div>
@@ -76,13 +130,13 @@ export default function App() {
             onClick={() => setMorphoProfile('ectomorph')}
             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${morphoProfile === 'ectomorph' ? 'bg-teal-500 text-slate-950 font-bold shadow' : 'text-slate-400 hover:text-white'}`}
           >
-            Prise de Masse
+            Masse
           </button>
           <button 
             onClick={() => setMorphoProfile('overweight')}
             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${morphoProfile === 'overweight' ? 'bg-amber-500 text-slate-950 font-bold shadow' : 'text-slate-400 hover:text-white'}`}
           >
-            Perte de Gras
+            Sec
           </button>
           <button 
             onClick={() => setMorphoProfile('maintenance')}
@@ -93,6 +147,7 @@ export default function App() {
         </div>
       </header>
 
+      {/* Contenu Principal */}
       <main className="flex-1 max-w-4xl w-full mx-auto p-4 md:p-6 pb-24">
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
@@ -105,10 +160,10 @@ export default function App() {
                   <h2 className="text-2xl font-bold text-white mb-1">Bonjour, Prêt à rayonner ?</h2>
                   <p className="text-slate-300 text-sm max-w-lg">
                     {morphoProfile === 'ectomorph' 
-                      ? "Focus sur un surplus calorique intelligent, des collations riches et des entraînements courts et intenses."
+                      ? "Focus sur un surplus calorique intelligent et des entraînements courts et intenses."
                       : morphoProfile === 'overweight'
-                      ? "Focus sur un déficit calorique progressif, des aliments à forte satiété et l'augmentation des pas quotidiens."
-                      : "Maintenez votre énergie vitale grâce à des routines stables et un sommeil réparateur."}
+                      ? "Focus sur un déficit calorique progressif et l'augmentation des pas quotidiens."
+                      : "Maintenez votre énergie vitale grâce à des routines stables."}
                   </p>
                 </div>
                 <Flame className="w-10 h-10 text-amber-400 hidden sm:block animate-pulse" />
@@ -149,27 +204,37 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+              {/* Bloc Mindset avec gestion Premium */}
+              <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-lg flex flex-col justify-between relative">
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <h3 className="font-semibold flex items-center text-amber-400">
-                      <Smile className="w-5 h-5 mr-2 text-amber-400" /> Motivation & Mindset
+                      <Smile className="w-5 h-5 mr-2 text-amber-400" /> Mindset & Sagesse
                     </h3>
-                    <button 
-                      onClick={() => setMindsetIndex((prev) => (prev + 1) % quotes.length)}
-                      className="text-slate-400 hover:text-white p-1"
-                      title="Changer de citation"
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center space-x-2">
+                      {quotes[mindsetIndex].premium && !isPremium && (
+                        <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full flex items-center border border-amber-500/30">
+                          <Lock className="w-3 h-3 mr-1" /> PRO
+                        </span>
+                      )}
+                      <button 
+                        onClick={handleNextMindset}
+                        className="text-slate-400 hover:text-white p-1"
+                        title="Changer de citation"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                   <p className="text-slate-300 text-sm italic mt-2">
-                    "{quotes[mindsetIndex]}"
+                    "{quotes[mindsetIndex].text}"
                   </p>
                 </div>
                 <div className="mt-4 pt-3 border-t border-slate-700 flex justify-between items-center text-xs text-slate-400">
-                  <span>Conseil du jour validé</span>
-                  <span className="text-emerald-400 font-semibold">Actif</span>
+                  <span>Motivation quotidienne</span>
+                  <span className={quotes[mindsetIndex].premium && !isPremium ? "text-amber-400 font-semibold" : "text-emerald-400 font-semibold"}>
+                    {quotes[mindsetIndex].premium && !isPremium ? "Verrouillé" : "Actif"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -183,40 +248,30 @@ export default function App() {
                 <Apple className="w-6 h-6 mr-2" /> Stratégie Nutritionnelle sur Mesure
               </h2>
               <p className="text-slate-300 text-sm mb-6">
-                Recommandations validées pour votre profil : <strong className="text-white">{morphoProfile === 'ectomorph' ? 'Prise de Masse (Ectomorphe)' : morphoProfile === 'overweight' ? 'Perte de Gras (Surpoids)' : 'Vitalité & Maintien'}</strong>
+                Recommandations validées pour votre profil : <strong className="text-white">{morphoProfile === 'ectomorph' ? 'Prise de Masse' : morphoProfile === 'overweight' ? 'Perte de Gras' : 'Vitalité'}</strong>
               </p>
 
               {morphoProfile === 'ectomorph' && (
                 <div className="space-y-4">
                   <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-700">
                     <h3 className="font-semibold text-teal-300 mb-1">1. Surplus Calorique (+300 à +500 kcal)</h3>
-                    <p className="text-sm text-slate-300">Mangez légèrement au-dessus de vos dépenses. Privilégiez les oléagineux (amandes, beurre de cacahuète), les avocats et les glucides denses (riz, patate douce, avoine).</p>
-                  </div>
-                  <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-700">
-                    <h3 className="font-semibold text-teal-300 mb-1">2. Fractionnement des repas</h3>
-                    <p className="text-sm text-slate-300">Faites 3 repas solides et 2 collations riches par jour (ex: smoothie banane, avoine, beurre de cacahuète, protéine).</p>
+                    <p className="text-sm text-slate-300">Privilégiez les oléagineux, avocats et glucides denses (riz, avoine).</p>
                   </div>
                 </div>
               )}
-
               {morphoProfile === 'overweight' && (
                 <div className="space-y-4">
                   <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-700">
-                    <h3 className="font-semibold text-amber-300 mb-1">1. Déficit Calorique Modéré (-300 à -500 kcal)</h3>
-                    <p className="text-sm text-slate-300">Évitez les régimes drastiques. Visez une perte durable en réduisant les sucres rapides et en augmentant les légumes riches en fibres pour la satiété.</p>
-                  </div>
-                  <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-700">
-                    <h3 className="font-semibold text-amber-300 mb-1">2. Protéines Maigres & Hydratation</h3>
-                    <p className="text-sm text-slate-300">Consommez du poulet, du poisson blanc, du tofu et buvez 2 à 3 litres d'eau par jour pour soutenir votre métabolisme.</p>
+                    <h3 className="font-semibold text-amber-300 mb-1">1. Déficit Calorique Modéré</h3>
+                    <p className="text-sm text-slate-300">Réduisez les sucres rapides et augmentez les légumes riches en fibres.</p>
                   </div>
                 </div>
               )}
-
               {morphoProfile === 'maintenance' && (
                 <div className="space-y-4">
                   <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-700">
-                    <h3 className="font-semibold text-indigo-300 mb-1">Équilibre & Énergie Stable</h3>
-                    <p className="text-sm text-slate-300">Maintenez vos apports caloriques équilibrés, privilégiez les produits frais, non transformés et écoutez les signaux de faim de votre corps.</p>
+                    <h3 className="font-semibold text-indigo-300 mb-1">Équilibre & Énergie</h3>
+                    <p className="text-sm text-slate-300">Maintenez des apports caloriques stables avec des produits frais.</p>
                   </div>
                 </div>
               )}
@@ -230,30 +285,75 @@ export default function App() {
               <h2 className="text-xl font-bold mb-2 flex items-center text-teal-400">
                 <Dumbbell className="w-6 h-6 mr-2" /> Plan d'Entraînement Adapté
               </h2>
-              <p className="text-slate-300 text-sm mb-4">
-                {morphoProfile === 'ectomorph' ? "Objectif : Musculation lourde, courte et polyarticulaire (Squat, Développé couché, Tractions)." : "Objectif : Renforcement musculaire pour préserver la masse sèche + NEAT (marche active quotidienne)."}
-              </p>
-
               <div className="space-y-3 mt-4">
                 {[
                   { id: 1, title: "Échauffement articulaire & mobilité", duration: "5 min" },
-                  { id: 2, title: morphoProfile === 'ectomorph' ? "Exercice Polyarticulaire lourd (ex: Squat ou Soulevé de terre)" : "Circuit Training tonique ou Renforcement global", duration: "25 min" },
-                  { id: 3, title: "Retour au calme & étirements doux", duration: "10 min" },
+                  { id: 2, title: "Exercice principal ciblée", duration: "25 min" },
+                  { id: 3, title: "Retour au calme & étirements", duration: "10 min", premium: true },
                 ].map((item) => (
                   <div 
                     key={item.id} 
-                    onClick={() => toggleWorkout(item.id)}
+                    onClick={() => {
+                      if (item.premium && !isPremium) {
+                        setShowPaywallModal(true);
+                      } else {
+                        toggleWorkout(item.id);
+                      }
+                    }}
                     className={`flex items-center justify-between p-4 rounded-xl border transition cursor-pointer ${completedWorkouts.includes(item.id) ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300' : 'bg-slate-900/60 border-slate-700 text-slate-200'}`}
                   >
                     <div className="flex items-center space-x-3">
                       <div className={`w-6 h-6 rounded-full flex items-center justify-center border ${completedWorkouts.includes(item.id) ? 'bg-emerald-500 border-emerald-500 text-slate-950' : 'border-slate-500'}`}>
                         {completedWorkouts.includes(item.id) && <CheckCircle className="w-4 h-4" />}
                       </div>
-                      <span className="font-medium text-sm">{item.title}</span>
+                      <span className="font-medium text-sm flex items-center">
+                        {item.title}
+                        {item.premium && !isPremium && <Lock className="w-3.5 h-3.5 ml-2 text-amber-400" />}
+                      </span>
                     </div>
                     <span className="text-xs px-2.5 py-1 bg-slate-800 rounded-full text-slate-400">{item.duration}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Nouvel onglet Don / Soutien */}
+        {activeTab === 'support' && (
+          <div className="space-y-6 text-center max-w-md mx-auto">
+            <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 shadow-xl">
+              <div className="w-14 h-14 bg-rose-500/20 text-rose-400 rounded-2xl mx-auto flex items-center justify-center mb-4 border border-rose-500/30">
+                <Coffee className="w-7 h-7" />
+              </div>
+              <h2 className="text-xl font-bold mb-2 text-white">Soutenir LifeSync</h2>
+              <p className="text-slate-300 text-sm mb-6">
+                Vous aimez l'application ? Aidez-nous à la maintenir en ligne et à développer de nouvelles fonctionnalités en offrant un petit café ! ☕
+              </p>
+              
+              <div className="grid grid-cols-3 gap-3 mb-6">
+                <button 
+                  onClick={() => alert("Merci du fond du cœur pour votre soutien (2€) !")}
+                  className="bg-slate-900 hover:bg-slate-700 border border-slate-700 py-3 rounded-xl font-bold text-teal-400 text-sm transition"
+                >
+                  ☕ 2 €
+                </button>
+                <button 
+                  onClick={() => alert("Merci énormément pour votre générosité (5€) !")}
+                  className="bg-teal-500 hover:bg-teal-400 text-slate-950 py-3 rounded-xl font-bold text-sm transition shadow-lg shadow-teal-500/20"
+                >
+                  🚀 5 €
+                </button>
+                <button 
+                  onClick={() => alert("Vous êtes incroyable ! Merci infiniment (10€) !")}
+                  className="bg-slate-900 hover:bg-slate-700 border border-slate-700 py-3 rounded-xl font-bold text-amber-400 text-sm transition"
+                >
+                  👑 10 €
+                </button>
+              </div>
+
+              <div className="text-xs text-slate-400 flex items-center justify-center">
+                <ShieldCheck className="w-4 h-4 mr-1 text-emerald-400" /> Paiement 100% sécurisé via Stripe/Ko-fi
               </div>
             </div>
           </div>
@@ -288,13 +388,15 @@ export default function App() {
         )}
       </main>
 
+      {/* Barre de Navigation mobile enrichie avec l'onglet Soutien */}
       <nav className="bg-slate-800/90 backdrop-blur border-t border-slate-700 fixed bottom-0 left-0 right-0 p-2 z-50">
         <div className="max-w-md mx-auto flex justify-around items-center">
           {[
             { id: 'dashboard', label: 'Accueil', icon: Heart },
             { id: 'nutrition', label: 'Nutrition', icon: Apple },
             { id: 'workout', label: 'Sport', icon: Dumbbell },
-            { id: 'breathe', label: 'Respiration', icon: Wind },
+            { id: 'breathe', label: 'Souffle', icon: Wind },
+            { id: 'support', label: 'Soutenir', icon: Coffee },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
