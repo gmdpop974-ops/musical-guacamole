@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Heart, Droplet, Dumbbell, Wind, Smile, 
-  Flame, CheckCircle, RefreshCw, Sparkles, Apple, Lock, Crown, Coffee, ShieldCheck
+  Flame, CheckCircle, RefreshCw, Sparkles, Apple, Lock, Crown, Coffee, ShieldCheck,
+  Moon, CheckSquare, Plus, Trash2, Meh, Frown
 } from 'lucide-react';
 
 export default function App() {
@@ -14,6 +15,16 @@ export default function App() {
   const [breatheCountdown, setBreatheCountdown] = useState(4);
   const [completedWorkouts, setCompletedWorkouts] = useState([]);
   
+  // Nouveaux états du quotidien
+  const [mood, setMood] = useState(null);
+  const [sleepHours, setSleepHours] = useState(7);
+  const [todos, setTodos] = useState([
+    { id: 1, text: "Boire 8 verres d'eau", completed: false },
+    { id: 2, text: "Séance de sport ou marche active", completed: false },
+    { id: 3, text: "5 minutes de respiration", completed: false }
+  ]);
+  const [newTodoText, setNewTodoText] = useState('');
+
   // État pour simuler le statut Premium
   const [isPremium, setIsPremium] = useState(false);
   const [showPaywallModal, setShowPaywallModal] = useState(false);
@@ -69,10 +80,25 @@ export default function App() {
     }
   };
 
+  const toggleTodo = (id) => {
+    setTodos(todos.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
+  };
+
+  const addTodo = (e) => {
+    e.preventDefault();
+    if (!newTodoText.trim()) return;
+    setTodos([...todos, { id: Date.now(), text: newTodoText, completed: false }]);
+    setNewTodoText('');
+  };
+
+  const deleteTodo = (id) => {
+    setTodos(todos.filter(t => t.id !== id));
+  };
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans relative">
       
-      {/* Modal de passage au Premium */}
+      {/* Modal Paywall */}
       {showPaywallModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-800 border border-slate-700 rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl relative animate-in fade-in zoom-in duration-200">
@@ -159,17 +185,68 @@ export default function App() {
                   </span>
                   <h2 className="text-2xl font-bold text-white mb-1">Bonjour, Prêt à rayonner ?</h2>
                   <p className="text-slate-300 text-sm max-w-lg">
-                    {morphoProfile === 'ectomorph' 
-                      ? "Focus sur un surplus calorique intelligent et des entraînements courts et intenses."
-                      : morphoProfile === 'overweight'
-                      ? "Focus sur un déficit calorique progressif et l'augmentation des pas quotidiens."
-                      : "Maintenez votre énergie vitale grâce à des routines stables."}
+                    Gérez votre énergie, votre hydratation et vos priorités du jour en un clin d'œil.
                   </p>
                 </div>
                 <Flame className="w-10 h-10 text-amber-400 hidden sm:block animate-pulse" />
               </div>
             </div>
 
+            {/* Tracker d'humeur & Sommeil */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-lg">
+                <h3 className="font-semibold flex items-center text-teal-400 mb-3">
+                  <Smile className="w-5 h-5 mr-2 text-teal-400" /> Comment vous sentez-vous aujourd'hui ?
+                </h3>
+                <div className="flex justify-between gap-2 mt-4">
+                  {[
+                    { id: 'great', label: 'Au top', icon: Smile, color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' },
+                    { id: 'good', label: 'Bien', icon: Smile, color: 'text-teal-400 bg-teal-500/10 border-teal-500/30' },
+                    { id: 'meh', label: 'Moyen', icon: Meh, color: 'text-amber-400 bg-amber-500/10 border-amber-500/30' },
+                    { id: 'bad', label: 'Fatigué', icon: Frown, color: 'text-rose-400 bg-rose-500/10 border-rose-500/30' },
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    const isSelected = mood === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => setMood(item.id)}
+                        className={`flex-1 flex flex-col items-center p-3 rounded-xl border transition ${isSelected ? `${item.color} ring-2 ring-teal-400 font-bold` : 'bg-slate-900/60 border-slate-700 text-slate-400 hover:text-white'}`}
+                      >
+                        <Icon className="w-6 h-6 mb-1" />
+                        <span className="text-xs">{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="font-semibold flex items-center text-indigo-400">
+                      <Moon className="w-5 h-5 mr-2 text-indigo-400" /> Suivi du Sommeil
+                    </h3>
+                    <span className="text-xs bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2.5 py-1 rounded-full font-bold">
+                      {sleepHours}h de sommeil
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mb-3">
+                    {sleepHours >= 7 ? "✨ Excellente récupération !" : "⚠️ Veillez à vous coucher plus tôt ce soir."}
+                  </p>
+                </div>
+                <input 
+                  type="range" 
+                  min="3" 
+                  max="12" 
+                  value={sleepHours} 
+                  onChange={(e) => setSleepHours(Number(e.target.value))}
+                  className="w-full accent-indigo-500 cursor-pointer"
+                />
+              </div>
+            </div>
+
+            {/* Hydratation & Mindset */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
                 <div>
@@ -204,7 +281,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Bloc Mindset avec gestion Premium */}
+              {/* Bloc Mindset */}
               <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-lg flex flex-col justify-between relative">
                 <div>
                   <div className="flex justify-between items-center mb-2">
@@ -238,6 +315,48 @@ export default function App() {
                 </div>
               </div>
             </div>
+
+            {/* To-Do List du Jour */}
+            <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-lg">
+              <h3 className="font-semibold flex items-center text-emerald-400 mb-4">
+                <CheckSquare className="w-5 h-5 mr-2 text-emerald-400" /> Priorités du Jour (To-Do)
+              </h3>
+              
+              <form onSubmit={addTodo} className="flex gap-2 mb-4">
+                <input 
+                  type="text" 
+                  value={newTodoText}
+                  onChange={(e) => setNewTodoText(e.target.value)}
+                  placeholder="Ajouter une nouvelle habitude ou tâche..."
+                  className="flex-1 bg-slate-900 border border-slate-700 px-4 py-2.5 rounded-xl text-sm text-slate-200 focus:outline-none focus:border-teal-400"
+                />
+                <button type="submit" className="bg-teal-500 hover:bg-teal-400 text-slate-950 px-4 py-2.5 rounded-xl font-bold flex items-center transition">
+                  <Plus className="w-5 h-5" />
+                </button>
+              </form>
+
+              <div className="space-y-2">
+                {todos.map((todo) => (
+                  <div key={todo.id} className="flex items-center justify-between bg-slate-900/60 border border-slate-700 p-3 rounded-xl">
+                    <div 
+                      onClick={() => toggleTodo(todo.id)}
+                      className="flex items-center space-x-3 cursor-pointer flex-1"
+                    >
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${todo.completed ? 'bg-emerald-500 border-emerald-500 text-slate-950' : 'border-slate-500'}`}>
+                        {todo.completed && <CheckCircle className="w-4 h-4" />}
+                      </div>
+                      <span className={`text-sm ${todo.completed ? 'line-through text-slate-500' : 'text-slate-200'}`}>
+                        {todo.text}
+                      </span>
+                    </div>
+                    <button onClick={() => deleteTodo(todo.id)} className="text-slate-500 hover:text-rose-400 p-1">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
           </div>
         )}
 
@@ -319,7 +438,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Nouvel onglet Don / Soutien */}
+        {/* Onglet Don / Soutien */}
         {activeTab === 'support' && (
           <div className="space-y-6 text-center max-w-md mx-auto">
             <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 shadow-xl">
@@ -388,7 +507,7 @@ export default function App() {
         )}
       </main>
 
-      {/* Barre de Navigation mobile enrichie avec l'onglet Soutien */}
+      {/* Barre de Navigation mobile */}
       <nav className="bg-slate-800/90 backdrop-blur border-t border-slate-700 fixed bottom-0 left-0 right-0 p-2 z-50">
         <div className="max-w-md mx-auto flex justify-around items-center">
           {[
