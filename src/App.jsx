@@ -624,4 +624,9 @@ export default function App() {
         )}
       </main>
 
-      <footer className="max
+      <footer className="max-w-6xl mx-auto px-4 mt-16 pt-6 border-t border-slate-900 text-center text-xs text-slate-400">
+        <p>© 2026 LifeSync. Tous droits réservés. Propulsé par React & Ko-fi.</p>
+      </footer>
+    </div>
+  );
+}
