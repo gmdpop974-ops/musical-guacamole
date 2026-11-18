@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Heart, Flame, Compass, DollarSign, Users, Crown, 
   CheckCircle, Lock, Sparkles, ArrowRight, ShieldCheck, 
-  Zap, Plus, Trash2, Droplets, Moon, Activity, TrendingUp, Award
+  Zap, Plus, Trash2, Droplets, Moon, Activity, Play, Pause, RotateCcw
 } from 'lucide-react';
 
 // ==========================================
@@ -18,20 +18,17 @@ export default function App() {
   const [activationError, setActivationError] = useState(false);
   const [activationSuccess, setActivationSuccess] = useState(false);
 
-  // --- ÉTATS DES FONCTIONNALITÉS STANDARD (SAUVEGARDÉES) ---
-  // 1. Health : Eau & Sommeil
+  // --- ÉTATS DES FONCTIONNALITÉS ---
   const [waterGlasses, setWaterGlasses] = useState(() => Number(localStorage.getItem('ls_water')) || 0);
   const [sleepHours, setSleepHours] = useState(() => Number(localStorage.getItem('ls_sleep')) || 7.5);
   const [mood, setMood] = useState(() => localStorage.getItem('ls_mood') || 'Énergique ⚡');
 
-  // 2. Nutrition : Repas & Calories
   const [meals, setMeals] = useState(() => JSON.parse(localStorage.getItem('ls_meals')) || [
     { id: 1, name: 'Petit-déjeuner équilibré', calories: 450 }
   ]);
   const [mealName, setMealName] = useState('');
   const [mealCalories, setMealCalories] = useState('');
 
-  // 3. Lifestyle : Habitudes quotidiennes
   const [habits, setHabits] = useState(() => JSON.parse(localStorage.getItem('ls_habits')) || [
     { id: 1, text: 'Lire 15 minutes', done: false },
     { id: 2, text: '30 min de marche ou sport', done: false },
@@ -39,7 +36,11 @@ export default function App() {
   ]);
   const [newHabit, setNewHabit] = useState('');
 
-  // 4. Money : Suivi budget rapide
+  // Chronomètre Pomodoro (Lifestyle)
+  const [pomodoroTime, setPomodoroTime] = useState(25 * 60);
+  const [isPomodoroActive, setIsPomodoroActive] = useState(false);
+  const [pomodoroMode, setPomodoroMode] = useState('work'); // 'work' ou 'break'
+
   const [transactions, setTransactions] = useState(() => JSON.parse(localStorage.getItem('ls_money')) || [
     { id: 1, label: 'Budget initial du mois', amount: 1500, type: 'income' },
     { id: 2, label: 'Courses alimentaires', amount: 85, type: 'expense' }
@@ -48,7 +49,6 @@ export default function App() {
   const [txAmount, setTxAmount] = useState('');
   const [txType, setTxType] = useState('expense');
 
-  // 5. Social : Gratitude & Objectifs relationnels
   const [notes, setNotes] = useState(() => JSON.parse(localStorage.getItem('ls_social')) || [
     { id: 1, text: 'Appeler un proche cette semaine 📞' }
   ]);
@@ -60,6 +60,33 @@ export default function App() {
       setIsVip(true);
     }
   }, []);
+
+  // Effet Pomodoro Timer
+  useEffect(() => {
+    let interval = null;
+    if (isPomodoroActive && pomodoroTime > 0) {
+      interval = setInterval(() => {
+        setPomodoroTime((prev) => prev - 1);
+      }, 1000);
+    } else if (pomodoroTime === 0) {
+      setIsPomodoroActive(false);
+      alert(pomodoroMode === 'work' ? 'Temps de travail écoulé ! Prenez une pause 🌿' : 'Pause terminée ! Prêt à reprendre ? 🚀');
+    }
+    return () => clearInterval(interval);
+  }, [isPomodoroActive, pomodoroTime, pomodoroMode]);
+
+  const togglePomodoro = () => setIsPomodoroActive(!isPomodoroActive);
+  const resetPomodoro = (mode) => {
+    setIsPomodoroActive(false);
+    setPomodoroMode(mode);
+    setPomodoroTime(mode === 'work' ? 25 * 60 : 5 * 60);
+  };
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   // Sauvegardes automatiques
   useEffect(() => { localStorage.setItem('ls_water', waterGlasses); }, [waterGlasses]);
@@ -84,45 +111,13 @@ export default function App() {
     }
   };
 
-  // Actions Nutrition
-  const addMeal = (e) => {
-    e.preventDefault();
-    if (!mealName.trim() || !mealCalories) return;
-    setMeals([...meals, { id: Date.now(), name: mealName, calories: Number(mealCalories) }]);
-    setMealName('');
-    setMealCalories('');
-  };
-  const totalCalories = meals.reduce((acc, m) => acc + m.calories, 0);
-
-  // Actions Lifestyle
-  const toggleHabit = (id) => {
-    setHabits(habits.map(h => h.id === id ? { ...h, done: !h.done } : h));
-  };
-  const addHabit = (e) => {
-    e.preventDefault();
-    if (!newHabit.trim()) return;
-    if (!isVip && habits.length >= 5) return; // Limite gratuite à 5 habitudes
-    setHabits([...habits, { id: Date.now(), text: newHabit, done: false }]);
-    setNewHabit('');
-  };
-
-  // Actions Money
-  const addTransaction = (e) => {
-    e.preventDefault();
-    if (!txLabel.trim() || !txAmount) return;
-    setTransactions([{ id: Date.now(), label: txLabel, amount: Number(txAmount), type: txType }, ...transactions]);
-    setTxLabel('');
-    setTxAmount('');
-  };
-  const balance = transactions.reduce((acc, t) => t.type === 'income' ? acc + t.amount : acc - t.amount, 0);
-
-  // Actions Social
-  const addNote = (e) => {
-    e.preventDefault();
-    if (!noteInput.trim()) return;
-    setNotes([{ id: Date.now(), text: noteInput }, ...notes]);
-    setNoteInput('');
-  };
+  // Calcul d'un Score Global de Vie (sur 100)
+  const habitsDoneCount = habits.filter(h => h.done).length;
+  const globalScore = Math.min(100, Math.round(
+    (waterGlasses / 8) * 25 + 
+    (Math.min(sleepHours, 8) / 8) * 25 + 
+    (habits.length > 0 ? (habitsDoneCount / habits.length) * 25 : 0) + 25
+  ));
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500 selection:text-white pb-12">
@@ -151,7 +146,7 @@ export default function App() {
             </a>
           ) : (
             <span className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-3 py-1.5 rounded-xl text-xs font-bold">
-              <Crown className="w-4 h-4" /> MEMBRE VIP PRO
+              <Crown className="w-4 h-4" /> MEMBRE VIP PRO ✨
             </span>
           )}
         </div>
@@ -186,8 +181,22 @@ export default function App() {
       </header>
 
       {/* Contenu principal */}
-      <main className="max-w-6xl mx-auto px-4 mt-6">
-        
+      <main className="max-w-6xl mx-auto px-4 mt-6 space-y-6">
+
+        {/* --- INDICATEUR DE SCORE GLOBAL --- */}
+        <div className="bg-gradient-to-r from-slate-900 to-indigo-950/60 border border-slate-800 rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4 shadow-xl">
+          <div>
+            <span className="text-xs uppercase tracking-wider text-indigo-400 font-semibold">Indicateur d'équilibre journalier</span>
+            <h3 className="text-lg font-bold text-white mt-0.5">Score LifeSync du jour</h3>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <span className="text-2xl font-black text-indigo-400">{globalScore} / 100</span>
+              <p className="text-xs text-slate-400">{globalScore >= 75 ? 'Excellente journée 🚀' : 'En bonne voie 💪'}</p>
+            </div>
+          </div>
+        </div>
+
         {/* ================= ONGLET HEALTH ================= */}
         {activeTab === 'health' && (
           <div className="space-y-6">
@@ -195,7 +204,7 @@ export default function App() {
               <h2 className="text-xl font-bold flex items-center gap-2 text-white">
                 <Heart className="w-5 h-5 text-rose-500" /> Tableau de bord : HEALTH
               </h2>
-              <p className="text-slate-400 text-sm mt-1">Suivez votre hydratation, votre sommeil et votre énergie au quotidien.</p>
+              <p className="text-slate-400 text-sm mt-1">Suivez votre hydratation, votre sommeil et votre énergie.</p>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
                 {/* Hydratation */}
@@ -223,7 +232,7 @@ export default function App() {
                     <span className="text-xs text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                       <Moon className="w-4 h-4 text-indigo-400" /> Sommeil
                     </span>
-                    <span className="text-xs text-indigo-400 font-semibold">Objectif : 8h</span>
+                    <span className="text-xs text-indigo-400 font-semibold">Cible : 8h</span>
                   </div>
                   <p className="text-2xl font-bold text-white my-3">{sleepHours} heures</p>
                   <div className="flex gap-2">
@@ -252,14 +261,13 @@ export default function App() {
               </div>
             </div>
 
-            {/* Section VIP Exclusive Health */}
             {isVip ? (
               <div className="bg-gradient-to-r from-emerald-950/40 to-teal-950/40 border border-emerald-500/30 rounded-2xl p-6">
                 <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Crown className="w-4 h-4" /> MODULE VIP DÉBLOQUÉ : BILAN SANTÉ AVANCÉ
+                  <Crown className="w-4 h-4" /> ANALYSE VIP PRO ACTIVÉE
                 </span>
                 <p className="text-sm text-slate-300 mt-2">
-                  Votre score de récupération du jour est de <strong>{Math.min(100, Math.round((waterGlasses * 6) + (sleepHours * 6)))}%</strong>. Continuez à maintenir plus de 7h30 de sommeil pour optimiser votre concentration mentale.
+                  Votre niveau d'hydratation couvre {Math.round((waterGlasses / 8) * 100)}% de vos besoins recommandés. Maintenez un rythme régulier pour booster votre clarté mentale.
                 </p>
               </div>
             ) : (
@@ -268,8 +276,8 @@ export default function App() {
                   <div className="flex items-center gap-2 text-indigo-400 font-semibold text-sm">
                     <Lock className="w-4 h-4" /> ANALYSE AVANCÉE BLOQUÉE
                   </div>
-                  <h3 className="text-lg font-bold text-white mt-1">Débloquez le score de récupération & les routines VIP</h3>
-                  <p className="text-slate-300 text-sm mt-1">Accédez aux bilans complets, aux limites illimitées et aux guides exclusifs pour 4,99 € à vie.</p>
+                  <h3 className="text-lg font-bold text-white mt-1">Débloquez les bilans détaillés & options illimitées</h3>
+                  <p className="text-slate-300 text-sm mt-1">Accédez à tout l'historique et aux programmes exclusifs pour 4,99 € à vie.</p>
                 </div>
                 <a href={PREMIUM_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-6 py-3 rounded-xl whitespace-nowrap shadow-lg transition-all flex items-center gap-2">
                   Débloquer <ArrowRight className="w-4 h-4" />
@@ -287,18 +295,26 @@ export default function App() {
                 <h2 className="text-xl font-bold flex items-center gap-2 text-white">
                   <Flame className="w-5 h-5 text-orange-500" /> Journal Nutritionnel
                 </h2>
-                <p className="text-slate-400 text-sm mt-1">Suivez vos repas et vos apports caloriques de la journée.</p>
+                <p className="text-slate-400 text-sm mt-1">Suivez vos repas et vos calories de la journée.</p>
               </div>
               <div className="bg-slate-950 border border-slate-800 px-4 py-2 rounded-xl text-right">
                 <span className="text-xs text-slate-400 block">Total du jour</span>
-                <span className="text-xl font-bold text-orange-400">{totalCalories} kcal</span>
+                <span className="text-xl font-bold text-orange-400">
+                  {meals.reduce((acc, m) => acc + m.calories, 0)} kcal
+                </span>
               </div>
             </div>
 
-            <form onSubmit={addMeal} className="flex flex-col sm:flex-row gap-3">
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (!mealName.trim() || !mealCalories) return;
+              setMeals([...meals, { id: Date.now(), name: mealName, calories: Number(mealCalories) }]);
+              setMealName('');
+              setMealCalories('');
+            }} className="flex flex-col sm:flex-row gap-3">
               <input 
                 type="text" 
-                placeholder="Nom du repas (ex: Poulet riz légumes)" 
+                placeholder="Nom du repas (ex: Salade de fruits)" 
                 value={mealName}
                 onChange={(e) => setMealName(e.target.value)}
                 className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
@@ -331,50 +347,92 @@ export default function App() {
           </div>
         )}
 
-        {/* ================= ONGLET LIFESTYLE ================= */}
+        {/* ================= ONGLET LIFESTYLE (AVEC POMODORO INTÉGRÉ) ================= */}
         {activeTab === 'lifestyle' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
-            <div>
-              <h2 className="text-xl font-bold flex items-center gap-2 text-white">
-                <Compass className="w-5 h-5 text-teal-400" /> Tracker d'Habitudes
-              </h2>
-              <p className="text-slate-400 text-sm mt-1">
-                Cochez vos rituels quotidiens {isVip ? '(Habitudes illimitées VIP)' : `(${habits.length}/5 habitudes en version gratuite)`}.
+          <div className="space-y-6">
+            {/* Widget Chronomètre Focus / Pomodoro */}
+            <div className="bg-gradient-to-br from-indigo-950/50 to-slate-900 border border-indigo-500/30 rounded-2xl p-6 shadow-xl text-center">
+              <span className="text-xs uppercase tracking-wider text-indigo-400 font-bold">Mode Focus & Productivité</span>
+              <div className="text-4xl md:text-5xl font-black text-white font-mono my-3">
+                {formatTime(pomodoroTime)}
+              </div>
+              <p className="text-xs text-slate-400 mb-4">
+                {pomodoroMode === 'work' ? '🎯 Session de concentration en cours' : '🌿 Temps de pause relaxant'}
               </p>
+              
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <button 
+                  onClick={togglePomodoro}
+                  className={`px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-md transition-all ${isPomodoroActive ? 'bg-amber-500 hover:bg-amber-400 text-slate-950' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}
+                >
+                  {isPomodoroActive ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                  {isPomodoroActive ? 'Pause' : 'Démarrer'}
+                </button>
+                <button 
+                  onClick={() => resetPomodoro('work')}
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-medium text-slate-300 flex items-center gap-1.5"
+                >
+                  <RotateCcw className="w-4 h-4" /> 25 min Travail
+                </button>
+                <button 
+                  onClick={() => resetPomodoro('break')}
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-medium text-slate-300"
+                >
+                  5 min Pause
+                </button>
+              </div>
             </div>
 
-            <form onSubmit={addHabit} className="flex gap-3">
-              <input 
-                type="text" 
-                placeholder={(!isVip && habits.length >= 5) ? "Limite gratuite atteinte (Passez VIP pour plus)" : "Nouvelle habitude positive..."}
-                disabled={!isVip && habits.length >= 5}
-                value={newHabit}
-                onChange={(e) => setNewHabit(e.target.value)}
-                className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50"
-              />
-              <button 
-                type="submit" 
-                disabled={!isVip && habits.length >= 5}
-                className="bg-teal-600 hover:bg-teal-500 disabled:bg-slate-800 text-white font-bold px-5 py-2.5 rounded-xl text-sm flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" /> Créer
-              </button>
-            </form>
+            {/* Gestionnaire d'habitudes */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2 text-white">
+                  <Compass className="w-5 h-5 text-teal-400" /> Tracker d'Habitudes
+                </h2>
+                <p className="text-slate-400 text-sm mt-1">
+                  Cochez vos rituels {isVip ? '(Illimité VIP ✨)' : `(${habits.length}/5 max en version gratuite)`}.
+                </p>
+              </div>
 
-            <div className="space-y-2">
-              {habits.map(habit => (
-                <div key={habit.id} className="flex items-center justify-between bg-slate-950/60 border border-slate-800/80 px-4 py-3 rounded-xl">
-                  <button onClick={() => toggleHabit(habit.id)} className="flex items-center gap-3 text-left flex-1">
-                    <div className={`w-5 h-5 rounded-md flex items-center justify-center border ${habit.done ? 'bg-teal-500 border-teal-500 text-slate-950' : 'border-slate-600'}`}>
-                      {habit.done && <CheckCircle className="w-4 h-4" />}
-                    </div>
-                    <span className={`text-sm ${habit.done ? 'line-through text-slate-500' : 'text-slate-200'}`}>{habit.text}</span>
-                  </button>
-                  <button onClick={() => setHabits(habits.filter(h => h.id !== habit.id))} className="text-slate-500 hover:text-rose-400">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                if (!newHabit.trim()) return;
+                if (!isVip && habits.length >= 5) return;
+                setHabits([...habits, { id: Date.now(), text: newHabit, done: false }]);
+                setNewHabit('');
+              }} className="flex gap-3">
+                <input 
+                  type="text" 
+                  placeholder={(!isVip && habits.length >= 5) ? "Limite gratuite atteinte (Passez VIP)" : "Nouvelle habitude..."}
+                  disabled={!isVip && habits.length >= 5}
+                  value={newHabit}
+                  onChange={(e) => setNewHabit(e.target.value)}
+                  className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+                />
+                <button 
+                  type="submit" 
+                  disabled={!isVip && habits.length >= 5}
+                  className="bg-teal-600 hover:bg-teal-500 disabled:bg-slate-800 text-white font-bold px-5 py-2.5 rounded-xl text-sm flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" /> Créer
+                </button>
+              </form>
+
+              <div className="space-y-2">
+                {habits.map(habit => (
+                  <div key={habit.id} className="flex items-center justify-between bg-slate-950/60 border border-slate-800/80 px-4 py-3 rounded-xl">
+                    <button onClick={() => setHabits(habits.map(h => h.id === habit.id ? { ...h, done: !h.done } : h))} className="flex items-center gap-3 text-left flex-1">
+                      <div className={`w-5 h-5 rounded-md flex items-center justify-center border ${habit.done ? 'bg-teal-500 border-teal-500 text-slate-950' : 'border-slate-600'}`}>
+                        {habit.done && <CheckCircle className="w-4 h-4" />}
+                      </div>
+                      <span className={`text-sm ${habit.done ? 'line-through text-slate-500' : 'text-slate-200'}`}>{habit.text}</span>
+                    </button>
+                    <button onClick={() => setHabits(habits.filter(h => h.id !== habit.id))} className="text-slate-500 hover:text-rose-400">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -387,15 +445,26 @@ export default function App() {
                 <h2 className="text-xl font-bold flex items-center gap-2 text-white">
                   <DollarSign className="w-5 h-5 text-emerald-400" /> Gestion Budget & Épargne
                 </h2>
-                <p className="text-slate-400 text-sm mt-1">Gardez le contrôle sur vos entrées et sorties d'argent en toute simplicité.</p>
+                <p className="text-slate-400 text-sm mt-1">Gardez le contrôle sur vos entrées et sorties d'argent.</p>
               </div>
               <div className="bg-slate-950 border border-slate-800 px-5 py-2.5 rounded-xl text-right">
                 <span className="text-xs text-slate-400 block">Solde disponible</span>
-                <span className={`text-2xl font-bold ${balance >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{balance} €</span>
+                <span className={`text-2xl font-bold ${
+                  transactions.reduce((acc, t) => t.type === 'income' ? acc + t.amount : acc - t.amount, 0) >= 0 
+                  ? 'text-emerald-400' : 'text-rose-400'
+                }`}>
+                  {transactions.reduce((acc, t) => t.type === 'income' ? acc + t.amount : acc - t.amount, 0)} €
+                </span>
               </div>
             </div>
 
-            <form onSubmit={addTransaction} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (!txLabel.trim() || !txAmount) return;
+              setTransactions([{ id: Date.now(), label: txLabel, amount: Number(txAmount), type: txType }, ...transactions]);
+              setTxLabel('');
+              setTxAmount('');
+            }} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <select 
                 value={txType} 
                 onChange={(e) => setTxType(e.target.value)}
@@ -406,7 +475,7 @@ export default function App() {
               </select>
               <input 
                 type="text" 
-                placeholder="Libellé (ex: Loyer, Salaire)" 
+                placeholder="Libellé (ex: Salaire, Courses)" 
                 value={txLabel}
                 onChange={(e) => setTxLabel(e.target.value)}
                 className="sm:col-span-2 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
@@ -450,13 +519,18 @@ export default function App() {
               <h2 className="text-xl font-bold flex items-center gap-2 text-white">
                 <Users className="w-5 h-5 text-violet-400" /> Espace Social & Gratitude
               </h2>
-              <p className="text-slate-400 text-sm mt-1">Notez vos pensées positives et les personnes à contacter.</p>
+              <p className="text-slate-400 text-sm mt-1">Notez vos pensées positives et vos rappels relationnels.</p>
             </div>
 
-            <form onSubmit={addNote} className="flex gap-3">
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (!noteInput.trim()) return;
+              setNotes([{ id: Date.now(), text: noteInput }, ...notes]);
+              setNoteInput('');
+            }} className="flex gap-3">
               <input 
                 type="text" 
-                placeholder="Écrire une note de gratitude ou un rappel social..." 
+                placeholder="Écrire une note de gratitude..." 
                 value={noteInput}
                 onChange={(e) => setNoteInput(e.target.value)}
                 className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
@@ -490,7 +564,7 @@ export default function App() {
               <p className="text-slate-400 text-sm mt-2">
                 {isVip 
                   ? "Félicitations ! Votre compte dispose d'un accès VIP PRO complet à vie." 
-                  : "Débloquez les habitudes illimitées, les bilans de récupération avancés et soutenez le développement."}
+                  : "Débloquez les habitudes illimitées et les analyses avancées."}
               </p>
             </div>
 
@@ -498,7 +572,7 @@ export default function App() {
               <div className="mt-8 bg-emerald-950/40 border border-emerald-500/30 rounded-xl p-6 text-center space-y-3">
                 <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto" />
                 <h3 className="text-lg font-bold text-emerald-300">Statut VIP Activé</h3>
-                <p className="text-sm text-slate-300">Toutes les limites de la version Standard sont levées sur cet appareil.</p>
+                <p className="text-sm text-slate-300">Toutes les fonctionnalités et limites sont débloquées sur cet appareil.</p>
               </div>
             ) : (
               <div className="mt-8 space-y-6">
@@ -506,7 +580,7 @@ export default function App() {
                   <h3 className="font-semibold text-sm text-white flex items-center gap-2">
                     <Zap className="w-4 h-4 text-amber-400" /> Étape 1 : Obtenir le sésame (4,99 € à vie)
                   </h3>
-                  <p className="text-xs text-slate-400">Effectuez votre paiement unique sécurisé sur Ko-fi pour recevoir instantanément votre code secret.</p>
+                  <p className="text-xs text-slate-400">Effectuez votre paiement sur Ko-fi pour recevoir instantanément votre code secret.</p>
                   <a 
                     href={PREMIUM_PAYMENT_LINK}
                     target="_blank"
@@ -538,7 +612,7 @@ export default function App() {
                   </form>
 
                   {activationError && (
-                    <p className="text-xs text-rose-400 text-center">Code incorrect. Vérifiez le message reçu après votre achat sur Ko-fi.</p>
+                    <p className="text-xs text-rose-400 text-center">Code incorrect. Vérifiez le message reçu après votre achat.</p>
                   )}
                   {activationSuccess && (
                     <p className="text-xs text-emerald-400 text-center">Code validé avec succès !</p>
@@ -550,9 +624,4 @@ export default function App() {
         )}
       </main>
 
-      <footer className="max-w-6xl mx-auto px-4 mt-16 pt-6 border-t border-slate-900 text-center text-xs text-slate-400">
-        <p>© 2026 LifeSync. Tous droits réservés. Propulsé par React & Ko-fi.</p>
-      </footer>
-    </div>
-  );
-}
+      <footer className="max
