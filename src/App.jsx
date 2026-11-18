@@ -8,7 +8,7 @@ import {
 // ==========================================
 // CONFIGURATION DE LA BOUTIQUE KO-FI (VIP PRO)
 // ==========================================
-const PREMIUM_PAYMENT_LINK = "https://ko-fi.com/s/ton_vrai_lien_ici"; // <--- Ton lien Ko-fi est à mettre ici entre les guillemets
+const PREMIUM_PAYMENT_LINK = "https://ko-fi.com/s/cb69315850?preview=true#"; // <--- Ton lien Ko-fi est à mettre ici entre les guillemets
 const LIFETIME_VIP_CODE = "LIFESYNC2026";
 
 export default function App() {
