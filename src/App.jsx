@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Heart, Flame, Compass, DollarSign, Users, Crown, 
   CheckCircle, Lock, Sparkles, ArrowRight, ShieldCheck, 
-  Zap, Plus, Trash2, Droplets, Moon, Activity, Play, Pause, RotateCcw
+  Zap, Plus, Trash2, Droplets, Moon, Activity, Play, Pause, RotateCcw,
+  Volume2, VolumeX, Palette, BrainCircuit
 } from 'lucide-react';
 
 // ==========================================
@@ -17,6 +18,9 @@ export default function App() {
   const [secretInput, setSecretInput] = useState('');
   const [activationError, setActivationError] = useState(false);
   const [activationSuccess, setActivationSuccess] = useState(false);
+
+  // --- NOUVEAUTÉ VIP 1 : THÈMES VISUELS ---
+  const [vipTheme, setVipTheme] = useState(() => localStorage.getItem('ls_theme') || 'gold');
 
   // --- ÉTATS DES FONCTIONNALITÉS ---
   const [waterGlasses, setWaterGlasses] = useState(() => Number(localStorage.getItem('ls_water')) || 0);
@@ -36,10 +40,13 @@ export default function App() {
   ]);
   const [newHabit, setNewHabit] = useState('');
 
-  // Chronomètre Pomodoro (Lifestyle)
+  // Chronomètre Pomodoro + Sons d'ambiance VIP
   const [pomodoroTime, setPomodoroTime] = useState(25 * 60);
   const [isPomodoroActive, setIsPomodoroActive] = useState(false);
-  const [pomodoroMode, setPomodoroMode] = useState('work'); // 'work' ou 'break'
+  const [pomodoroMode, setPomodoroMode] = useState('work');
+  const [ambientSound, setAmbientSound] = useState('none'); // 'none', 'rain', 'deep'
+  const audioCtxRef = useRef(null);
+  const noiseNodeRef = useRef(null);
 
   const [transactions, setTransactions] = useState(() => JSON.parse(localStorage.getItem('ls_money')) || [
     { id: 1, label: 'Budget initial du mois', amount: 1500, type: 'income' },
@@ -61,6 +68,67 @@ export default function App() {
     }
   }, []);
 
+  // --- NOUVEAUTÉ VIP 2 : SYNTHÉTISEUR AUDIO D'AMBIANCE (SANS FICHIER EXTERNE) ---
+  useEffect(() => {
+    const stopAudio = () => {
+      if (noiseNodeRef.current) {
+        try { noiseNodeRef.current.disconnect(); } catch (e) {}
+        noiseNodeRef.current = null;
+      }
+      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+        audioCtxRef.current.close().catch(() => {});
+        audioCtxRef.current = null;
+      }
+    };
+
+    if (!isVip || ambientSound === 'none') {
+      stopAudio();
+      return;
+    }
+
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AudioContext();
+    audioCtxRef.current = ctx;
+
+    const bufferSize = 2 * ctx.sampleRate;
+    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+
+    if (ambientSound === 'rain') {
+      // Bruit rose doux (simulation pluie fine)
+      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        b0 = 0.99886 * b0 + white * 0.0555179;
+        b1 = 0.99332 * b1 + white * 0.0750759;
+        b2 = 0.96900 * b2 + white * 0.1538520;
+        b3 = 0.86650 * b3 + white * 0.3104856;
+        b4 = 0.55000 * b4 + white * 0.5329522;
+        b5 = -0.7616 * b5 - white * 0.0168980;
+        output[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.04;
+        b6 = white * 0.115926;
+      }
+    } else if (ambientSound === 'deep') {
+      // Bruit brun profond (simulation cascade / vagues graves)
+      let lastOut = 0.0;
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        output[i] = (lastOut + (0.02 * white)) / 1.02;
+        lastOut = output[i];
+        output[i] *= 0.18;
+      }
+    }
+
+    const whiteNoise = ctx.createBufferSource();
+    whiteNoise.buffer = noiseBuffer;
+    whiteNoise.loop = true;
+    whiteNoise.connect(ctx.destination);
+    whiteNoise.start(0);
+    noiseNodeRef.current = whiteNoise;
+
+    return () => stopAudio();
+  }, [ambientSound, isVip]);
+
   // Effet Pomodoro Timer
   useEffect(() => {
     let interval = null;
@@ -70,6 +138,7 @@ export default function App() {
       }, 1000);
     } else if (pomodoroTime === 0) {
       setIsPomodoroActive(false);
+      setAmbientSound('none');
       alert(pomodoroMode === 'work' ? 'Temps de travail écoulé ! Prenez une pause 🌿' : 'Pause terminée ! Prêt à reprendre ? 🚀');
     }
     return () => clearInterval(interval);
@@ -89,6 +158,7 @@ export default function App() {
   };
 
   // Sauvegardes automatiques
+  useEffect(() => { localStorage.setItem('ls_theme', vipTheme); }, [vipTheme]);
   useEffect(() => { localStorage.setItem('ls_water', waterGlasses); }, [waterGlasses]);
   useEffect(() => { localStorage.setItem('ls_sleep', sleepHours); }, [sleepHours]);
   useEffect(() => { localStorage.setItem('ls_mood', mood); }, [mood]);
@@ -111,44 +181,111 @@ export default function App() {
     }
   };
 
-  // Calcul d'un Score Global de Vie (sur 100)
+  // Calculs dynamiques
   const habitsDoneCount = habits.filter(h => h.done).length;
+  const totalCalories = meals.reduce((acc, m) => acc + m.calories, 0);
+  const currentBalance = transactions.reduce((acc, t) => t.type === 'income' ? acc + t.amount : acc - t.amount, 0);
   const globalScore = Math.min(100, Math.round(
     (waterGlasses / 8) * 25 + 
     (Math.min(sleepHours, 8) / 8) * 25 + 
     (habits.length > 0 ? (habitsDoneCount / habits.length) * 25 : 0) + 25
   ));
 
+  // --- NOUVEAUTÉ VIP 3 : GÉNÉRATEUR DE DIAGNOSTIC COACH IA ---
+  const getCoachAdvice = () => {
+    const advices = [];
+    if (sleepHours < 7) {
+      advices.push("⚠️ Sommeil inférieur à 7h : privilégiez des tâches légères aujourd'hui et évitez la caféine après 15h.");
+    } else {
+      advices.push("✅ Récupération optimale : votre capital sommeil est idéal pour attaquer une session Focus de 25 min.");
+    }
+    if (waterGlasses < 4) {
+      advices.push("💧 Hydratation critique : buvez 2 grands verres d'eau maintenant pour éviter la baisse de concentration.");
+    }
+    if (currentBalance < 200) {
+      advices.push("📉 Alerte Budget : votre solde disponible est serré, appliquez la règle des 24h avant tout achat non essentiel.");
+    } else {
+      advices.push(`💰 Santé Financière solide (${currentBalance} €) : pensez à mettre 10% de côté dès aujourd'hui.`);
+    }
+    return advices;
+  };
+
+  // Styles dynamiques selon le thème VIP actif
+  const activeTheme = isVip ? vipTheme : 'default';
+  const themeStyles = {
+    default: {
+      bg: 'bg-slate-950',
+      header: 'bg-slate-900/60 border-slate-800',
+      accentBtn: 'bg-indigo-600 hover:bg-indigo-500 text-white',
+      cardBorder: 'border-slate-800',
+      scoreBanner: 'from-slate-900 to-indigo-950/60 border-slate-800'
+    },
+    gold: {
+      bg: 'bg-stone-950',
+      header: 'bg-stone-900/80 border-amber-500/30',
+      accentBtn: 'bg-gradient-to-r from-amber-500 to-yellow-500 text-stone-950 font-bold',
+      cardBorder: 'border-amber-500/20 shadow-amber-500/5',
+      scoreBanner: 'from-stone-900 via-amber-950/30 to-stone-900 border-amber-500/40'
+    },
+    emerald: {
+      bg: 'bg-neutral-950',
+      header: 'bg-neutral-900/80 border-emerald-500/30',
+      accentBtn: 'bg-gradient-to-r from-emerald-500 to-teal-400 text-neutral-950 font-bold',
+      cardBorder: 'border-emerald-500/20 shadow-emerald-500/5',
+      scoreBanner: 'from-neutral-900 via-emerald-950/30 to-neutral-900 border-emerald-500/40'
+    }
+  }[activeTheme];
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500 selection:text-white pb-12">
+    <div className={`min-h-screen ${themeStyles.bg} text-slate-100 font-sans selection:bg-amber-500 selection:text-slate-950 pb-12 transition-colors duration-500`}>
       {/* Barre supérieure */}
-      <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur-md sticky top-0 z-50">
+      <header className={`border-b ${themeStyles.header} backdrop-blur-md sticky top-0 z-50 transition-colors`}>
         <div className="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-              <Sparkles className="w-5 h-5 text-white" />
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${isVip ? 'bg-gradient-to-tr from-amber-500 to-yellow-300 shadow-amber-500/20' : 'bg-gradient-to-tr from-indigo-600 to-violet-500 shadow-indigo-500/20'}`}>
+              {isVip ? <Crown className="w-5 h-5 text-slate-950" /> : <Sparkles className="w-5 h-5 text-white" />}
             </div>
             <div>
-              <h1 className="font-bold text-lg tracking-wide bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">LIFESYNC</h1>
+              <h1 className="font-bold text-lg tracking-wide bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent flex items-center gap-2">
+                LIFESYNC {isVip && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">PRO EDITION</span>}
+              </h1>
               <p className="text-xs text-slate-400">Votre compagnon de bien-être universel</p>
             </div>
           </div>
 
-          {!isVip ? (
-            <a 
-              href={PREMIUM_PAYMENT_LINK} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-bold px-4 py-2 rounded-xl text-sm shadow-lg shadow-amber-500/20 transition-all transform hover:scale-105"
-            >
-              <Crown className="w-4 h-4" />
-              <span>PASSER VIP PRO (4,99 €)</span>
-            </a>
-          ) : (
-            <span className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-3 py-1.5 rounded-xl text-xs font-bold">
-              <Crown className="w-4 h-4" /> MEMBRE VIP PRO ✨
-            </span>
-          )}
+          <div className="flex items-center gap-3">
+            {/* Sélecteur de Thème Exclusif VIP */}
+            {isVip && (
+              <div className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 px-2.5 py-1.5 rounded-xl">
+                <Palette className="w-3.5 h-3.5 text-amber-400" />
+                <select 
+                  value={vipTheme} 
+                  onChange={(e) => setVipTheme(e.target.value)}
+                  className="bg-transparent text-xs font-semibold text-slate-200 focus:outline-none cursor-pointer"
+                >
+                  <option value="gold" className="bg-slate-900">Thème Cyber Gold</option>
+                  <option value="emerald" className="bg-slate-900">Thème Émeraude Zen</option>
+                  <option value="default" className="bg-slate-900">Thème Classique</option>
+                </select>
+              </div>
+            )}
+
+            {!isVip ? (
+              <a 
+                href={PREMIUM_PAYMENT_LINK} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-bold px-4 py-2 rounded-xl text-sm shadow-lg shadow-amber-500/20 transition-all transform hover:scale-105"
+              >
+                <Crown className="w-4 h-4" />
+                <span>PASSER VIP PRO (4,99 €)</span>
+              </a>
+            ) : (
+              <span className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/40 text-amber-300 px-3 py-1.5 rounded-xl text-xs font-bold">
+                <Crown className="w-4 h-4" /> VIP ACTIF
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Navigation */}
@@ -165,7 +302,7 @@ export default function App() {
               <button 
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${activeTab === tab.id ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${activeTab === tab.id ? themeStyles.accentBtn : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
               >
                 <Icon className="w-4 h-4" /> {tab.label}
               </button>
@@ -184,112 +321,120 @@ export default function App() {
       <main className="max-w-6xl mx-auto px-4 mt-6 space-y-6">
 
         {/* --- INDICATEUR DE SCORE GLOBAL --- */}
-        <div className="bg-gradient-to-r from-slate-900 to-indigo-950/60 border border-slate-800 rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4 shadow-xl">
+        <div className={`bg-gradient-to-r ${themeStyles.scoreBanner} border rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4 shadow-xl`}>
           <div>
-            <span className="text-xs uppercase tracking-wider text-indigo-400 font-semibold">Indicateur d'équilibre journalier</span>
+            <span className="text-xs uppercase tracking-wider text-amber-400 font-semibold">Indicateur d'équilibre journalier</span>
             <h3 className="text-lg font-bold text-white mt-0.5">Score LifeSync du jour</h3>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <span className="text-2xl font-black text-indigo-400">{globalScore} / 100</span>
+              <span className="text-2xl font-black text-white">{globalScore} / 100</span>
               <p className="text-xs text-slate-400">{globalScore >= 75 ? 'Excellente journée 🚀' : 'En bonne voie 💪'}</p>
             </div>
           </div>
         </div>
 
-        {/* ================= ONGLET HEALTH ================= */}
-        {activeTab === 'health' && (
-          <div className="space-y-6">
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-              <h2 className="text-xl font-bold flex items-center gap-2 text-white">
-                <Heart className="w-5 h-5 text-rose-500" /> Tableau de bord : HEALTH
-              </h2>
-              <p className="text-slate-400 text-sm mt-1">Suivez votre hydratation, votre sommeil et votre énergie.</p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                {/* Hydratation */}
-                <div className="bg-slate-950/60 border border-slate-800/80 p-5 rounded-xl flex flex-col justify-between">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <Droplets className="w-4 h-4 text-sky-400" /> Hydratation
-                    </span>
-                    <span className="text-xs text-sky-400 font-semibold">{waterGlasses} / 8 verres</span>
-                  </div>
-                  <div className="my-4">
-                    <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
-                      <div className="bg-sky-500 h-full transition-all" style={{ width: `${Math.min((waterGlasses / 8) * 100, 100)}%` }}></div>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => setWaterGlasses(Math.max(0, waterGlasses - 1))} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm font-bold">-</button>
-                    <button onClick={() => setWaterGlasses(waterGlasses + 1)} className="flex-1 py-1.5 bg-sky-600 hover:bg-sky-500 rounded-lg text-sm font-bold">+ 1 verre</button>
-                  </div>
+        {/* --- MODULE EXCLUSIF VIP : COACH IA & ANALYSE STRATÉGIQUE --- */}
+        {isVip ? (
+          <div className="bg-gradient-to-r from-amber-950/30 via-slate-900 to-amber-950/30 border border-amber-500/40 rounded-2xl p-6 shadow-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                <BrainCircuit className="w-4 h-4" /> COACH IA STRATÉGIQUE (EXCLUSIVITÉ VIP)
+              </span>
+              <span className="text-[11px] text-amber-300/70">Analyse en temps réel</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+              {getCoachAdvice().map((advice, idx) => (
+                <div key={idx} className="bg-slate-950/70 border border-amber-500/20 p-3.5 rounded-xl text-xs text-slate-200 leading-relaxed">
+                  {advice}
                 </div>
-
-                {/* Sommeil */}
-                <div className="bg-slate-950/60 border border-slate-800/80 p-5 rounded-xl flex flex-col justify-between">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <Moon className="w-4 h-4 text-indigo-400" /> Sommeil
-                    </span>
-                    <span className="text-xs text-indigo-400 font-semibold">Cible : 8h</span>
-                  </div>
-                  <p className="text-2xl font-bold text-white my-3">{sleepHours} heures</p>
-                  <div className="flex gap-2">
-                    <button onClick={() => setSleepHours(Math.max(0, sleepHours - 0.5))} className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm font-bold">- 30m</button>
-                    <button onClick={() => setSleepHours(sleepHours + 0.5)} className="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-bold">+ 30m</button>
-                  </div>
-                </div>
-
-                {/* Humeur */}
-                <div className="bg-slate-950/60 border border-slate-800/80 p-5 rounded-xl flex flex-col justify-between">
-                  <span className="text-xs text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Activity className="w-4 h-4 text-emerald-400" /> État du jour
-                  </span>
-                  <p className="text-xl font-bold text-emerald-400 my-3">{mood}</p>
-                  <select 
-                    value={mood} 
-                    onChange={(e) => setMood(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none"
-                  >
-                    <option>Énergique ⚡</option>
-                    <option>Calme & Serein 🌿</option>
-                    <option>Concentré 🎯</option>
-                    <option>Fatigué 😴</option>
-                  </select>
-                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-500/10 rounded-lg text-amber-400">
+                <Lock className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-white">Coach IA Stratégique & Thèmes VIP verrouillés</p>
+                <p className="text-xs text-slate-400">Débloquez l'analyse intelligente de vos données, les sons d'ambiance et les thèmes exclusifs.</p>
               </div>
             </div>
+            <button onClick={() => setActiveTab('vip')} className="text-xs font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 px-4 py-2 rounded-xl transition-all">
+              Voir les avantages VIP
+            </button>
+          </div>
+        )}
 
-            {isVip ? (
-              <div className="bg-gradient-to-r from-emerald-950/40 to-teal-950/40 border border-emerald-500/30 rounded-2xl p-6">
-                <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Crown className="w-4 h-4" /> ANALYSE VIP PRO ACTIVÉE
-                </span>
-                <p className="text-sm text-slate-300 mt-2">
-                  Votre niveau d'hydratation couvre {Math.round((waterGlasses / 8) * 100)}% de vos besoins recommandés. Maintenez un rythme régulier pour booster votre clarté mentale.
-                </p>
-              </div>
-            ) : (
-              <div className="bg-gradient-to-r from-indigo-950/40 to-violet-950/40 border border-indigo-500/30 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6">
-                <div>
-                  <div className="flex items-center gap-2 text-indigo-400 font-semibold text-sm">
-                    <Lock className="w-4 h-4" /> ANALYSE AVANCÉE BLOQUÉE
-                  </div>
-                  <h3 className="text-lg font-bold text-white mt-1">Débloquez les bilans détaillés & options illimitées</h3>
-                  <p className="text-slate-300 text-sm mt-1">Accédez à tout l'historique et aux programmes exclusifs pour 4,99 € à vie.</p>
+        {/* ================= ONGLET HEALTH ================= */}
+        {activeTab === 'health' && (
+          <div className={`bg-slate-900 border ${themeStyles.cardBorder} rounded-2xl p-6 shadow-xl`}>
+            <h2 className="text-xl font-bold flex items-center gap-2 text-white">
+              <Heart className="w-5 h-5 text-rose-500" /> Tableau de bord : HEALTH
+            </h2>
+            <p className="text-slate-400 text-sm mt-1">Suivez votre hydratation, votre sommeil et votre énergie.</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+              {/* Hydratation */}
+              <div className="bg-slate-950/60 border border-slate-800/80 p-5 rounded-xl flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Droplets className="w-4 h-4 text-sky-400" /> Hydratation
+                  </span>
+                  <span className="text-xs text-sky-400 font-semibold">{waterGlasses} / 8 verres</span>
                 </div>
-                <a href={PREMIUM_PAYMENT_LINK} target="_blank" rel="noopener noreferrer" className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-6 py-3 rounded-xl whitespace-nowrap shadow-lg transition-all flex items-center gap-2">
-                  Débloquer <ArrowRight className="w-4 h-4" />
-                </a>
+                <div className="my-4">
+                  <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                    <div className="bg-sky-500 h-full transition-all" style={{ width: `${Math.min((waterGlasses / 8) * 100, 100)}%` }}></div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setWaterGlasses(Math.max(0, waterGlasses - 1))} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm font-bold">-</button>
+                  <button onClick={() => setWaterGlasses(waterGlasses + 1)} className="flex-1 py-1.5 bg-sky-600 hover:bg-sky-500 rounded-lg text-sm font-bold">+ 1 verre</button>
+                </div>
               </div>
-            )}
+
+              {/* Sommeil */}
+              <div className="bg-slate-950/60 border border-slate-800/80 p-5 rounded-xl flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Moon className="w-4 h-4 text-indigo-400" /> Sommeil
+                  </span>
+                  <span className="text-xs text-indigo-400 font-semibold">Cible : 8h</span>
+                </div>
+                <p className="text-2xl font-bold text-white my-3">{sleepHours} heures</p>
+                <div className="flex gap-2">
+                  <button onClick={() => setSleepHours(Math.max(0, sleepHours - 0.5))} className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm font-bold">- 30m</button>
+                  <button onClick={() => setSleepHours(sleepHours + 0.5)} className="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-bold">+ 30m</button>
+                </div>
+              </div>
+
+              {/* Humeur */}
+              <div className="bg-slate-950/60 border border-slate-800/80 p-5 rounded-xl flex flex-col justify-between">
+                <span className="text-xs text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Activity className="w-4 h-4 text-emerald-400" /> État du jour
+                </span>
+                <p className="text-xl font-bold text-emerald-400 my-3">{mood}</p>
+                <select 
+                  value={mood} 
+                  onChange={(e) => setMood(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none"
+                >
+                  <option>Énergique ⚡</option>
+                  <option>Calme & Serein 🌿</option>
+                  <option>Concentré 🎯</option>
+                  <option>Fatigué 😴</option>
+                </select>
+              </div>
+            </div>
           </div>
         )}
 
         {/* ================= ONGLET NUTRITION ================= */}
         {activeTab === 'nutrition' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+          <div className={`bg-slate-900 border ${themeStyles.cardBorder} rounded-2xl p-6 shadow-xl space-y-6`}>
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h2 className="text-xl font-bold flex items-center gap-2 text-white">
@@ -299,9 +444,7 @@ export default function App() {
               </div>
               <div className="bg-slate-950 border border-slate-800 px-4 py-2 rounded-xl text-right">
                 <span className="text-xs text-slate-400 block">Total du jour</span>
-                <span className="text-xl font-bold text-orange-400">
-                  {meals.reduce((acc, m) => acc + m.calories, 0)} kcal
-                </span>
+                <span className="text-xl font-bold text-orange-400">{totalCalories} kcal</span>
               </div>
             </div>
 
@@ -326,7 +469,7 @@ export default function App() {
                 onChange={(e) => setMealCalories(e.target.value)}
                 className="w-full sm:w-40 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
               />
-              <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2">
+              <button type="submit" className={`${themeStyles.accentBtn} px-5 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2`}>
                 <Plus className="w-4 h-4" /> Ajouter
               </button>
             </form>
@@ -347,23 +490,23 @@ export default function App() {
           </div>
         )}
 
-        {/* ================= ONGLET LIFESTYLE (AVEC POMODORO INTÉGRÉ) ================= */}
+        {/* ================= ONGLET LIFESTYLE (AVEC POMODORO + SONS VIP) ================= */}
         {activeTab === 'lifestyle' && (
           <div className="space-y-6">
             {/* Widget Chronomètre Focus / Pomodoro */}
-            <div className="bg-gradient-to-br from-indigo-950/50 to-slate-900 border border-indigo-500/30 rounded-2xl p-6 shadow-xl text-center">
-              <span className="text-xs uppercase tracking-wider text-indigo-400 font-bold">Mode Focus & Productivité</span>
+            <div className={`bg-gradient-to-br from-slate-900 to-slate-950 border ${themeStyles.cardBorder} rounded-2xl p-6 shadow-xl text-center`}>
+              <span className="text-xs uppercase tracking-wider text-amber-400 font-bold">Mode Focus & Productivité</span>
               <div className="text-4xl md:text-5xl font-black text-white font-mono my-3">
                 {formatTime(pomodoroTime)}
               </div>
-              <p className="text-xs text-slate-400 mb-4">
+              <p className="text-xs text-slate-400 mb-5">
                 {pomodoroMode === 'work' ? '🎯 Session de concentration en cours' : '🌿 Temps de pause relaxant'}
               </p>
               
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <button 
                   onClick={togglePomodoro}
-                  className={`px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-md transition-all ${isPomodoroActive ? 'bg-amber-500 hover:bg-amber-400 text-slate-950' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}
+                  className={`px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-md transition-all ${isPomodoroActive ? 'bg-rose-500 hover:bg-rose-400 text-white' : themeStyles.accentBtn}`}
                 >
                   {isPomodoroActive ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                   {isPomodoroActive ? 'Pause' : 'Démarrer'}
@@ -381,10 +524,37 @@ export default function App() {
                   5 min Pause
                 </button>
               </div>
+
+              {/* Barre de Sons d'Ambiance VIP */}
+              <div className="mt-6 pt-5 border-t border-slate-800/80 max-w-md mx-auto">
+                <div className="flex items-center justify-center gap-2 text-xs font-semibold text-amber-400 mb-3">
+                  {ambientSound !== 'none' ? <Volume2 className="w-4 h-4 animate-pulse" /> : <VolumeX className="w-4 h-4 text-slate-500" />}
+                  <span>Ambiance Sonore Focus {isVip ? '(VIP Débloqué ✨)' : '(Réservé VIP 🔒)'}</span>
+                </div>
+                {isVip ? (
+                  <div className="flex justify-center gap-2">
+                    {[
+                      { id: 'none', label: 'Silence' },
+                      { id: 'rain', label: '🌧️ Pluie douce' },
+                      { id: 'deep', label: '🌊 Cascade profonde' }
+                    ].map(sound => (
+                      <button
+                        key={sound.id}
+                        onClick={() => setAmbientSound(sound.id)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${ambientSound === sound.id ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                      >
+                        {sound.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500">Activez le mode VIP PRO pour écouter des bruits blancs et sons de pluie pendant vos sessions.</p>
+                )}
+              </div>
             </div>
 
             {/* Gestionnaire d'habitudes */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+            <div className={`bg-slate-900 border ${themeStyles.cardBorder} rounded-2xl p-6 shadow-xl space-y-6`}>
               <div>
                 <h2 className="text-xl font-bold flex items-center gap-2 text-white">
                   <Compass className="w-5 h-5 text-teal-400" /> Tracker d'Habitudes
@@ -419,214 +589,4 @@ export default function App() {
               </form>
 
               <div className="space-y-2">
-                {habits.map(habit => (
-                  <div key={habit.id} className="flex items-center justify-between bg-slate-950/60 border border-slate-800/80 px-4 py-3 rounded-xl">
-                    <button onClick={() => setHabits(habits.map(h => h.id === habit.id ? { ...h, done: !h.done } : h))} className="flex items-center gap-3 text-left flex-1">
-                      <div className={`w-5 h-5 rounded-md flex items-center justify-center border ${habit.done ? 'bg-teal-500 border-teal-500 text-slate-950' : 'border-slate-600'}`}>
-                        {habit.done && <CheckCircle className="w-4 h-4" />}
-                      </div>
-                      <span className={`text-sm ${habit.done ? 'line-through text-slate-500' : 'text-slate-200'}`}>{habit.text}</span>
-                    </button>
-                    <button onClick={() => setHabits(habits.filter(h => h.id !== habit.id))} className="text-slate-500 hover:text-rose-400">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ================= ONGLET MONEY ================= */}
-        {activeTab === 'money' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold flex items-center gap-2 text-white">
-                  <DollarSign className="w-5 h-5 text-emerald-400" /> Gestion Budget & Épargne
-                </h2>
-                <p className="text-slate-400 text-sm mt-1">Gardez le contrôle sur vos entrées et sorties d'argent.</p>
-              </div>
-              <div className="bg-slate-950 border border-slate-800 px-5 py-2.5 rounded-xl text-right">
-                <span className="text-xs text-slate-400 block">Solde disponible</span>
-                <span className={`text-2xl font-bold ${
-                  transactions.reduce((acc, t) => t.type === 'income' ? acc + t.amount : acc - t.amount, 0) >= 0 
-                  ? 'text-emerald-400' : 'text-rose-400'
-                }`}>
-                  {transactions.reduce((acc, t) => t.type === 'income' ? acc + t.amount : acc - t.amount, 0)} €
-                </span>
-              </div>
-            </div>
-
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              if (!txLabel.trim() || !txAmount) return;
-              setTransactions([{ id: Date.now(), label: txLabel, amount: Number(txAmount), type: txType }, ...transactions]);
-              setTxLabel('');
-              setTxAmount('');
-            }} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-              <select 
-                value={txType} 
-                onChange={(e) => setTxType(e.target.value)}
-                className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none"
-              >
-                <option value="expense">Dépense (-)</option>
-                <option value="income">Revenu (+)</option>
-              </select>
-              <input 
-                type="text" 
-                placeholder="Libellé (ex: Salaire, Courses)" 
-                value={txLabel}
-                onChange={(e) => setTxLabel(e.target.value)}
-                className="sm:col-span-2 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
-              />
-              <div className="flex gap-2">
-                <input 
-                  type="number" 
-                  placeholder="€" 
-                  value={txAmount}
-                  onChange={(e) => setTxAmount(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
-                />
-                <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl text-sm">
-                  <Plus className="w-4 h-4" />
-                </button>
-              </div>
-            </form>
-
-            <div className="space-y-2">
-              {transactions.map(tx => (
-                <div key={tx.id} className="flex items-center justify-between bg-slate-950/60 border border-slate-800/80 px-4 py-3 rounded-xl">
-                  <span className="text-sm font-medium text-slate-200">{tx.label}</span>
-                  <div className="flex items-center gap-4">
-                    <span className={`text-sm font-bold ${tx.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {tx.type === 'income' ? '+' : '-'} {tx.amount} €
-                    </span>
-                    <button onClick={() => setTransactions(transactions.filter(t => t.id !== tx.id))} className="text-slate-500 hover:text-rose-400">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ================= ONGLET SOCIAL ================= */}
-        {activeTab === 'social' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
-            <div>
-              <h2 className="text-xl font-bold flex items-center gap-2 text-white">
-                <Users className="w-5 h-5 text-violet-400" /> Espace Social & Gratitude
-              </h2>
-              <p className="text-slate-400 text-sm mt-1">Notez vos pensées positives et vos rappels relationnels.</p>
-            </div>
-
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              if (!noteInput.trim()) return;
-              setNotes([{ id: Date.now(), text: noteInput }, ...notes]);
-              setNoteInput('');
-            }} className="flex gap-3">
-              <input 
-                type="text" 
-                placeholder="Écrire une note de gratitude..." 
-                value={noteInput}
-                onChange={(e) => setNoteInput(e.target.value)}
-                className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
-              />
-              <button type="submit" className="bg-violet-600 hover:bg-violet-500 text-white font-bold px-5 py-2.5 rounded-xl text-sm">
-                Noter
-              </button>
-            </form>
-
-            <div className="space-y-2">
-              {notes.map(note => (
-                <div key={note.id} className="flex items-center justify-between bg-slate-950/60 border border-slate-800/80 px-4 py-3 rounded-xl">
-                  <span className="text-sm text-slate-200">{note.text}</span>
-                  <button onClick={() => setNotes(notes.filter(n => n.id !== note.id))} className="text-slate-500 hover:text-rose-400">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ================= ONGLET VIP PRO ================= */}
-        {activeTab === 'vip' && (
-          <div className="max-w-xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-2xl">
-            <div className="text-center">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-400 flex items-center justify-center mx-auto shadow-lg shadow-amber-500/20 mb-4">
-                <Crown className="w-7 h-7 text-slate-950" />
-              </div>
-              <h2 className="text-2xl font-bold text-white">Espace VIP PRO LifeSync</h2>
-              <p className="text-slate-400 text-sm mt-2">
-                {isVip 
-                  ? "Félicitations ! Votre compte dispose d'un accès VIP PRO complet à vie." 
-                  : "Débloquez les habitudes illimitées et les analyses avancées."}
-              </p>
-            </div>
-
-            {isVip ? (
-              <div className="mt-8 bg-emerald-950/40 border border-emerald-500/30 rounded-xl p-6 text-center space-y-3">
-                <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto" />
-                <h3 className="text-lg font-bold text-emerald-300">Statut VIP Activé</h3>
-                <p className="text-sm text-slate-300">Toutes les fonctionnalités et limites sont débloquées sur cet appareil.</p>
-              </div>
-            ) : (
-              <div className="mt-8 space-y-6">
-                <div className="bg-slate-950/60 border border-slate-800 p-5 rounded-xl space-y-3">
-                  <h3 className="font-semibold text-sm text-white flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-amber-400" /> Étape 1 : Obtenir le sésame (4,99 € à vie)
-                  </h3>
-                  <p className="text-xs text-slate-400">Effectuez votre paiement sur Ko-fi pour recevoir instantanément votre code secret.</p>
-                  <a 
-                    href={PREMIUM_PAYMENT_LINK}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block w-full text-center bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold py-3 rounded-xl text-sm transition-all shadow-md"
-                  >
-                    Accéder à la page de paiement Ko-fi
-                  </a>
-                </div>
-
-                <div className="bg-slate-950/60 border border-slate-800 p-5 rounded-xl space-y-3">
-                  <h3 className="font-semibold text-sm text-white flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-indigo-400" /> Étape 2 : Activer mon code secret
-                  </h3>
-                  <form onSubmit={handleActivateVip} className="space-y-3">
-                    <input 
-                      type="text" 
-                      placeholder="Entrez votre code (ex: LIFESYNC2026)" 
-                      value={secretInput}
-                      onChange={(e) => setSecretInput(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
-                    />
-                    <button 
-                      type="submit"
-                      className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl text-sm transition-all shadow-md shadow-indigo-600/20"
-                    >
-                      Activer mon accès VIP
-                    </button>
-                  </form>
-
-                  {activationError && (
-                    <p className="text-xs text-rose-400 text-center">Code incorrect. Vérifiez le message reçu après votre achat.</p>
-                  )}
-                  {activationSuccess && (
-                    <p className="text-xs text-emerald-400 text-center">Code validé avec succès !</p>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </main>
-
-      <footer className="max-w-6xl mx-auto px-4 mt-16 pt-6 border-t border-slate-900 text-center text-xs text-slate-400">
-        <p>© 2026 LifeSync. Tous droits réservés. Propulsé par React & Ko-fi.</p>
-      </footer>
-    </div>
-  );
-}
+                {habits.map(
