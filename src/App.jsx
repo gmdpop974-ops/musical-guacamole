@@ -589,4 +589,216 @@ export default function App() {
               </form>
 
               <div className="space-y-2">
-                {habits.map(
+                {habits.map(habit => (
+                  <div key={habit.id} className="flex items-center justify-between bg-slate-950/60 border border-slate-800/80 px-4 py-3 rounded-xl">
+                    <button onClick={() => setHabits(habits.map(h => h.id === habit.id ? { ...h, done: !h.done } : h))} className="flex items-center gap-3 text-left flex-1">
+                      <div className={`w-5 h-5 rounded-md flex items-center justify-center border ${habit.done ? 'bg-teal-500 border-teal-500 text-slate-950' : 'border-slate-600'}`}>
+                        {habit.done && <CheckCircle className="w-4 h-4" />}
+                      </div>
+                      <span className={`text-sm ${habit.done ? 'line-through text-slate-500' : 'text-slate-200'}`}>{habit.text}</span>
+                    </button>
+                    <button onClick={() => setHabits(habits.filter(h => h.id !== habit.id))} className="text-slate-500 hover:text-rose-400">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ================= ONGLET MONEY ================= */}
+        {activeTab === 'money' && (
+          <div className={`bg-slate-900 border ${themeStyles.cardBorder} rounded-2xl p-6 shadow-xl space-y-6`}>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2 text-white">
+                  <DollarSign className="w-5 h-5 text-emerald-400" /> Gestion Budget & Épargne
+                </h2>
+                <p className="text-slate-400 text-sm mt-1">Gardez le contrôle sur vos entrées et sorties d'argent.</p>
+              </div>
+              <div className="bg-slate-950 border border-slate-800 px-5 py-2.5 rounded-xl text-right">
+                <span className="text-xs text-slate-400 block">Solde disponible</span>
+                <span className={`text-2xl font-bold ${currentBalance >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {currentBalance} €
+                </span>
+              </div>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (!txLabel.trim() || !txAmount) return;
+              setTransactions([{ id: Date.now(), label: txLabel, amount: Number(txAmount), type: txType }, ...transactions]);
+              setTxLabel('');
+              setTxAmount('');
+            }} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <select 
+                value={txType} 
+                onChange={(e) => setTxType(e.target.value)}
+                className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none"
+              >
+                <option value="expense">Dépense (-)</option>
+                <option value="income">Revenu (+)</option>
+              </select>
+              <input 
+                type="text" 
+                placeholder="Libellé (ex: Salaire, Courses)" 
+                value={txLabel}
+                onChange={(e) => setTxLabel(e.target.value)}
+                className="sm:col-span-2 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+              />
+              <div className="flex gap-2">
+                <input 
+                  type="number" 
+                  placeholder="€" 
+                  value={txAmount}
+                  onChange={(e) => setTxAmount(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+                />
+                <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl text-sm">
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+            </form>
+
+            <div className="space-y-2">
+              {transactions.map(tx => (
+                <div key={tx.id} className="flex items-center justify-between bg-slate-950/60 border border-slate-800/80 px-4 py-3 rounded-xl">
+                  <span className="text-sm font-medium text-slate-200">{tx.label}</span>
+                  <div className="flex items-center gap-4">
+                    <span className={`text-sm font-bold ${tx.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {tx.type === 'income' ? '+' : '-'} {tx.amount} €
+                    </span>
+                    <button onClick={() => setTransactions(transactions.filter(t => t.id !== tx.id))} className="text-slate-500 hover:text-rose-400">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ================= ONGLET SOCIAL ================= */}
+        {activeTab === 'social' && (
+          <div className={`bg-slate-900 border ${themeStyles.cardBorder} rounded-2xl p-6 shadow-xl space-y-6`}>
+            <div>
+              <h2 className="text-xl font-bold flex items-center gap-2 text-white">
+                <Users className="w-5 h-5 text-violet-400" /> Espace Social & Gratitude
+              </h2>
+              <p className="text-slate-400 text-sm mt-1">Notez vos pensées positives et vos rappels relationnels.</p>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (!noteInput.trim()) return;
+              setNotes([{ id: Date.now(), text: noteInput }, ...notes]);
+              setNoteInput('');
+            }} className="flex gap-3">
+              <input 
+                type="text" 
+                placeholder="Écrire une note de gratitude..." 
+                value={noteInput}
+                onChange={(e) => setNoteInput(e.target.value)}
+                className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+              />
+              <button type="submit" className="bg-violet-600 hover:bg-violet-500 text-white font-bold px-5 py-2.5 rounded-xl text-sm">
+                Noter
+              </button>
+            </form>
+
+            <div className="space-y-2">
+              {notes.map(note => (
+                <div key={note.id} className="flex items-center justify-between bg-slate-950/60 border border-slate-800/80 px-4 py-3 rounded-xl">
+                  <span className="text-sm text-slate-200">{note.text}</span>
+                  <button onClick={() => setNotes(notes.filter(n => n.id !== note.id))} className="text-slate-500 hover:text-rose-400">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ================= ONGLET VIP PRO ================= */}
+        {activeTab === 'vip' && (
+          <div className={`max-w-xl mx-auto bg-slate-900 border ${themeStyles.cardBorder} rounded-2xl p-6 md:p-8 shadow-2xl`}>
+            <div className="text-center">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-400 flex items-center justify-center mx-auto shadow-lg shadow-amber-500/20 mb-4">
+                <Crown className="w-7 h-7 text-slate-950" />
+              </div>
+              <h2 className="text-2xl font-bold text-white">Espace VIP PRO LifeSync</h2>
+              <p className="text-slate-400 text-sm mt-2">
+                {isVip 
+                  ? "Votre accès VIP PRO est actif : Thèmes exclusifs, Coach IA Stratégique et Sons Focus débloqués." 
+                  : "Passez au niveau supérieur avec les thèmes exclusifs, l'audio d'ambiance Focus et le Coach IA."}
+              </p>
+            </div>
+
+            {isVip ? (
+              <div className="mt-8 bg-amber-950/30 border border-amber-500/30 rounded-xl p-6 text-center space-y-3">
+                <CheckCircle className="w-10 h-10 text-amber-400 mx-auto" />
+                <h3 className="text-lg font-bold text-amber-300">Privilèges VIP Actifs</h3>
+                <ul className="text-xs text-slate-300 space-y-1.5 text-left max-w-xs mx-auto pt-2">
+                  <li>✨ Sélecteur de thèmes (Cyber Gold & Émeraude Zen)</li>
+                  <li>🧠 Module Coach IA Stratégique en temps réel</li>
+                  <li>🌧️ Sons d'ambiance pluie & cascade dans Lifestyle</li>
+                  <li>♾️ Création d'habitudes illimitée</li>
+                </ul>
+              </div>
+            ) : (
+              <div className="mt-8 space-y-6">
+                <div className="bg-slate-950/60 border border-slate-800 p-5 rounded-xl space-y-3">
+                  <h3 className="font-semibold text-sm text-white flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-amber-400" /> Étape 1 : Obtenir le sésame (4,99 € à vie)
+                  </h3>
+                  <p className="text-xs text-slate-400">Effectuez votre paiement sur Ko-fi pour recevoir instantanément votre code secret.</p>
+                  <a 
+                    href={PREMIUM_PAYMENT_LINK}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full text-center bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold py-3 rounded-xl text-sm transition-all shadow-md"
+                  >
+                    Accéder à la page de paiement Ko-fi
+                  </a>
+                </div>
+
+                <div className="bg-slate-950/60 border border-slate-800 p-5 rounded-xl space-y-3">
+                  <h3 className="font-semibold text-sm text-white flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-indigo-400" /> Étape 2 : Activer mon code secret
+                  </h3>
+                  <form onSubmit={handleActivateVip} className="space-y-3">
+                    <input 
+                      type="text" 
+                      placeholder="Entrez votre code (ex: LIFESYNC2026)" 
+                      value={secretInput}
+                      onChange={(e) => setSecretInput(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
+                    />
+                    <button 
+                      type="submit"
+                      className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl text-sm transition-all shadow-md shadow-indigo-600/20"
+                    >
+                      Activer mon accès VIP
+                    </button>
+                  </form>
+
+                  {activationError && (
+                    <p className="text-xs text-rose-400 text-center">Code incorrect. Vérifiez le message reçu après votre achat.</p>
+                  )}
+                  {activationSuccess && (
+                    <p className="text-xs text-emerald-400 text-center">Code validé avec succès !</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+
+      <footer className="max-w-6xl mx-auto px-4 mt-16 pt-6 border-t border-slate-900 text-center text-xs text-slate-400">
+        <p>© 2026 LifeSync. Tous droits réservés. Propulsé par React & Ko-fi.</p>
+      </footer>
+    </div>
+  );
+}
