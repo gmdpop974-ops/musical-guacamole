@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Heart, Flame, Compass, DollarSign, Users, Crown, 
-  CheckCircle, Lock, Sparkles, ArrowRight, ShieldCheck, 
+  CheckCircle, Lock, Sparkles, ShieldCheck, 
   Zap, Plus, Trash2, Droplets, Moon, Activity, Play, Pause, RotateCcw,
-  Volume2, VolumeX, Palette, BrainCircuit
+  Volume2, VolumeX, Palette, BrainCircuit, Download, Upload, CalendarCheck, Target, RefreshCw
 } from 'lucide-react';
 
 // ==========================================
@@ -12,6 +12,15 @@ import {
 const PREMIUM_PAYMENT_LINK = "https://ko-fi.com/s/cb69315850";
 const SECRET_VIP_CODE = "LIFESYNC2026";
 
+const DAILY_CHALLENGES = [
+  { id: 1, category: 'Énergie', text: 'Boire 2 grands verres d’eau fraîche dès maintenant 💧' },
+  { id: 2, category: 'Focus', text: 'Couper toutes les notifications pendant 25 minutes 🎯' },
+  { id: 3, category: 'Sérénité', text: 'Prendre 3 minutes pour respirer lentement loin des écrans 🌿' },
+  { id: 4, category: 'Budget', text: 'Vérifier ses dépenses du jour et éviter tout achat impulsif 💰' },
+  { id: 5, category: 'Social', text: 'Envoyer un message positif à un proche ou un ami 💬' },
+  { id: 6, category: 'Vitalité', text: 'Faire 15 squats ou 5 minutes d’étirements dynamiques ⚡' }
+];
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('health');
   const [isVip, setIsVip] = useState(false);
@@ -19,7 +28,7 @@ export default function App() {
   const [activationError, setActivationError] = useState(false);
   const [activationSuccess, setActivationSuccess] = useState(false);
 
-  // --- NOUVEAUTÉ VIP 1 : THÈMES VISUELS ---
+  // --- THÈMES VISUELS VIP ---
   const [vipTheme, setVipTheme] = useState(() => localStorage.getItem('ls_theme') || 'gold');
 
   // --- ÉTATS DES FONCTIONNALITÉS ---
@@ -44,7 +53,7 @@ export default function App() {
   const [pomodoroTime, setPomodoroTime] = useState(25 * 60);
   const [isPomodoroActive, setIsPomodoroActive] = useState(false);
   const [pomodoroMode, setPomodoroMode] = useState('work');
-  const [ambientSound, setAmbientSound] = useState('none'); // 'none', 'rain', 'deep'
+  const [ambientSound, setAmbientSound] = useState('none');
   const audioCtxRef = useRef(null);
   const noiseNodeRef = useRef(null);
 
@@ -61,6 +70,15 @@ export default function App() {
   ]);
   const [noteInput, setNoteInput] = useState('');
 
+  // --- HISTORIQUE DE BILANS & RESTAURATION JSON ---
+  const [dailyHistory, setDailyHistory] = useState(() => JSON.parse(localStorage.getItem('ls_history')) || []);
+  const [statusMessage, setStatusMessage] = useState('');
+  const fileInputRef = useRef(null);
+
+  // --- DÉFI DU JOUR EXPRESS ---
+  const [challengeIdx, setChallengeIdx] = useState(() => Number(localStorage.getItem('ls_challenge_idx')) || 0);
+  const [challengeDone, setChallengeDone] = useState(() => localStorage.getItem('ls_challenge_done') === 'true');
+
   // Vérification statut VIP
   useEffect(() => {
     if (localStorage.getItem('lifesync_vip') === 'true') {
@@ -68,7 +86,7 @@ export default function App() {
     }
   }, []);
 
-  // --- NOUVEAUTÉ VIP 2 : SYNTHÉTISEUR AUDIO D'AMBIANCE (SANS FICHIER EXTERNE) ---
+  // --- SYNTHÉTISEUR AUDIO D'AMBIANCE VIP ---
   useEffect(() => {
     const stopAudio = () => {
       if (noiseNodeRef.current) {
@@ -95,7 +113,6 @@ export default function App() {
     const output = noiseBuffer.getChannelData(0);
 
     if (ambientSound === 'rain') {
-      // Bruit rose doux (simulation pluie fine)
       let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
       for (let i = 0; i < bufferSize; i++) {
         const white = Math.random() * 2 - 1;
@@ -109,7 +126,6 @@ export default function App() {
         b6 = white * 0.115926;
       }
     } else if (ambientSound === 'deep') {
-      // Bruit brun profond (simulation cascade / vagues graves)
       let lastOut = 0.0;
       for (let i = 0; i < bufferSize; i++) {
         const white = Math.random() * 2 - 1;
@@ -166,6 +182,14 @@ export default function App() {
   useEffect(() => { localStorage.setItem('ls_habits', JSON.stringify(habits)); }, [habits]);
   useEffect(() => { localStorage.setItem('ls_money', JSON.stringify(transactions)); }, [transactions]);
   useEffect(() => { localStorage.setItem('ls_social', JSON.stringify(notes)); }, [notes]);
+  useEffect(() => { localStorage.setItem('ls_history', JSON.stringify(dailyHistory)); }, [dailyHistory]);
+  useEffect(() => { localStorage.setItem('ls_challenge_idx', challengeIdx); }, [challengeIdx]);
+  useEffect(() => { localStorage.setItem('ls_challenge_done', challengeDone); }, [challengeDone]);
+
+  const notifyStatus = (msg) => {
+    setStatusMessage(msg);
+    setTimeout(() => setStatusMessage(''), 4000);
+  };
 
   // Activation VIP
   const handleActivateVip = (e) => {
@@ -181,17 +205,104 @@ export default function App() {
     }
   };
 
-  // Calculs dynamiques
+  // Calculs dynamiques (avec bonus +10 pts si le Défi du jour est validé)
   const habitsDoneCount = habits.filter(h => h.done).length;
   const totalCalories = meals.reduce((acc, m) => acc + m.calories, 0);
   const currentBalance = transactions.reduce((acc, t) => t.type === 'income' ? acc + t.amount : acc - t.amount, 0);
-  const globalScore = Math.min(100, Math.round(
-    (waterGlasses / 8) * 25 + 
-    (Math.min(sleepHours, 8) / 8) * 25 + 
-    (habits.length > 0 ? (habitsDoneCount / habits.length) * 25 : 0) + 25
-  ));
+  const baseScore =
+    (Math.min(waterGlasses, 8) / 8) * 25 +
+    (Math.min(sleepHours, 8) / 8) * 25 +
+    (habits.length > 0 ? (habitsDoneCount / habits.length) * 25 : 0) +
+    20 +
+    (challengeDone ? 5 : 0);
+  const globalScore = Math.min(100, Math.round(baseScore));
 
-  // --- NOUVEAUTÉ VIP 3 : GÉNÉRATEUR DE DIAGNOSTIC COACH IA ---
+  // Clôturer la journée
+  const handleCloseDay = () => {
+    const newEntry = {
+      id: Date.now(),
+      date: new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
+      score: globalScore,
+      water: waterGlasses,
+      habitsDone: `${habitsDoneCount}/${habits.length}`,
+      calories: totalCalories,
+      balance: currentBalance
+    };
+    const maxHistory = isVip ? 30 : 3;
+    setDailyHistory([newEntry, ...dailyHistory].slice(0, maxHistory));
+    setWaterGlasses(0);
+    setMeals([]);
+    setHabits(habits.map(h => ({ ...h, done: false })));
+    setChallengeDone(false);
+    setChallengeIdx((prev) => (prev + 1) % DAILY_CHALLENGES.length);
+    notifyStatus("✅ Bilan enregistré dans l'historique et compteurs journaliers réinitialisés.");
+  };
+
+  // Exporter toutes les données en fichier JSON
+  const handleExportData = () => {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      isVip,
+      vipTheme,
+      health: { waterGlasses, sleepHours, mood },
+      meals,
+      habits,
+      transactions,
+      notes,
+      dailyHistory
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lifesync-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    notifyStatus("💾 Fichier de sauvegarde téléchargé.");
+  };
+
+  // Réimporter / restaurer une sauvegarde JSON
+  const handleImportData = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target.result);
+        if (data.health) {
+          if (typeof data.health.waterGlasses === 'number') setWaterGlasses(data.health.waterGlasses);
+          if (typeof data.health.sleepHours === 'number') setSleepHours(data.health.sleepHours);
+          if (typeof data.health.mood === 'string') setMood(data.health.mood);
+        }
+        if (Array.isArray(data.meals)) setMeals(data.meals);
+        if (Array.isArray(data.habits)) setHabits(data.habits);
+        if (Array.isArray(data.transactions)) setTransactions(data.transactions);
+        if (Array.isArray(data.notes)) setNotes(data.notes);
+        if (Array.isArray(data.dailyHistory)) setDailyHistory(data.dailyHistory);
+        if (data.vipTheme) setVipTheme(data.vipTheme);
+        if (data.isVip) {
+          setIsVip(true);
+          localStorage.setItem('lifesync_vip', 'true');
+        }
+        notifyStatus("✅ Sauvegarde restaurée avec succès !");
+      } catch (err) {
+        notifyStatus("⚠️ Fichier invalide : impossible de restaurer cette sauvegarde.");
+      }
+      e.target.value = '';
+    };
+    reader.readAsText(file);
+  };
+
+  // Changer de défi du jour (VIP illimité)
+  const handleNextChallenge = () => {
+    if (!isVip) return;
+    setChallengeIdx((prev) => (prev + 1) % DAILY_CHALLENGES.length);
+    setChallengeDone(false);
+  };
+
+  const currentChallenge = DAILY_CHALLENGES[challengeIdx % DAILY_CHALLENGES.length];
+
+  // --- DIAGNOSTIC COACH IA VIP ---
   const getCoachAdvice = () => {
     const advices = [];
     if (sleepHours < 7) {
@@ -254,7 +365,6 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Sélecteur de Thème Exclusif VIP */}
             {isVip && (
               <div className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 px-2.5 py-1.5 rounded-xl">
                 <Palette className="w-3.5 h-3.5 text-amber-400" />
@@ -320,19 +430,109 @@ export default function App() {
       {/* Contenu principal */}
       <main className="max-w-6xl mx-auto px-4 mt-6 space-y-6">
 
-        {/* --- INDICATEUR DE SCORE GLOBAL --- */}
+        {/* --- INDICATEUR DE SCORE GLOBAL + SAUVEGARDE / RESTAURATION / BILAN --- */}
         <div className={`bg-gradient-to-r ${themeStyles.scoreBanner} border rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4 shadow-xl`}>
           <div>
             <span className="text-xs uppercase tracking-wider text-amber-400 font-semibold">Indicateur d'équilibre journalier</span>
             <h3 className="text-lg font-bold text-white mt-0.5">Score LifeSync du jour</h3>
+            {statusMessage && (
+              <p className="text-xs text-emerald-400 mt-1">{statusMessage}</p>
+            )}
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={handleExportData}
+              className="flex items-center gap-1.5 bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
+              title="Télécharger une sauvegarde complète de vos données"
+            >
+              <Download className="w-3.5 h-3.5 text-sky-400" /> Sauvegarder
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-1.5 bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
+              title="Restaurer une sauvegarde .json existante"
+            >
+              <Upload className="w-3.5 h-3.5 text-violet-400" /> Restaurer
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json,application/json"
+              onChange={handleImportData}
+              className="hidden"
+            />
+            <button
+              onClick={handleCloseDay}
+              className="flex items-center gap-1.5 bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
+              title="Archiver le bilan du jour et préparer la journée suivante"
+            >
+              <CalendarCheck className="w-3.5 h-3.5 text-emerald-400" /> Clôturer la journée
+            </button>
+            <div className="text-right pl-2">
               <span className="text-2xl font-black text-white">{globalScore} / 100</span>
               <p className="text-xs text-slate-400">{globalScore >= 75 ? 'Excellente journée 🚀' : 'En bonne voie 💪'}</p>
             </div>
           </div>
         </div>
+
+        {/* --- DÉFI DU JOUR EXPRESS (MICRO-QUÊTE) --- */}
+        <div className={`bg-slate-900/90 border ${themeStyles.cardBorder} rounded-2xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4 shadow-lg`}>
+          <div className="flex items-center gap-3.5">
+            <div className={`p-2.5 rounded-xl ${challengeDone ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
+              <Target className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400">Défi du jour • {currentChallenge.category}</span>
+                {challengeDone && <span className="text-[11px] font-bold text-emerald-400">+5 pts bonus</span>}
+              </div>
+              <p className={`text-sm font-medium mt-0.5 ${challengeDone ? 'line-through text-slate-400' : 'text-white'}`}>
+                {currentChallenge.text}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {isVip && (
+              <button
+                onClick={handleNextChallenge}
+                className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
+                title="Tirer un autre défi (Privilège VIP)"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-amber-400" /> Autre défi
+              </button>
+            )}
+            <button
+              onClick={() => setChallengeDone(!challengeDone)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${challengeDone ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : themeStyles.accentBtn}`}
+            >
+              {challengeDone ? 'Défi validé ✓' : 'Relever le défi'}
+            </button>
+          </div>
+        </div>
+
+        {/* --- HISTORIQUE DES BILANS QUOTIDIENS --- */}
+        {dailyHistory.length > 0 && (
+          <div className={`bg-slate-900/80 border ${themeStyles.cardBorder} rounded-2xl p-5 shadow-lg space-y-3`}>
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <CalendarCheck className="w-4 h-4 text-emerald-400" /> Historique des bilans {isVip ? '(jusqu\'à 30 bilans VIP)' : '(3 derniers bilans)'}
+              </h4>
+              <span className="text-xs text-slate-400">{dailyHistory.length} enregistré(s)</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {dailyHistory.map(item => (
+                <div key={item.id} className="bg-slate-950/70 border border-slate-800/80 p-3.5 rounded-xl text-xs space-y-1">
+                  <div className="flex items-center justify-between font-bold text-slate-200">
+                    <span>{item.date}</span>
+                    <span className="text-amber-400">{item.score}/100</span>
+                  </div>
+                  <p className="text-slate-400">Eau : {item.water} verres • Habitudes : {item.habitsDone}</p>
+                  <p className="text-slate-400">Repas : {item.calories} kcal • Solde : {item.balance} €</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* --- MODULE EXCLUSIF VIP : COACH IA & ANALYSE STRATÉGIQUE --- */}
         {isVip ? (
@@ -377,7 +577,6 @@ export default function App() {
             <p className="text-slate-400 text-sm mt-1">Suivez votre hydratation, votre sommeil et votre énergie.</p>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-              {/* Hydratation */}
               <div className="bg-slate-950/60 border border-slate-800/80 p-5 rounded-xl flex flex-col justify-between">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -396,7 +595,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Sommeil */}
               <div className="bg-slate-950/60 border border-slate-800/80 p-5 rounded-xl flex flex-col justify-between">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -411,7 +609,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Humeur */}
               <div className="bg-slate-950/60 border border-slate-800/80 p-5 rounded-xl flex flex-col justify-between">
                 <span className="text-xs text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                   <Activity className="w-4 h-4 text-emerald-400" /> État du jour
@@ -490,10 +687,9 @@ export default function App() {
           </div>
         )}
 
-        {/* ================= ONGLET LIFESTYLE (AVEC POMODORO + SONS VIP) ================= */}
+        {/* ================= ONGLET LIFESTYLE ================= */}
         {activeTab === 'lifestyle' && (
           <div className="space-y-6">
-            {/* Widget Chronomètre Focus / Pomodoro */}
             <div className={`bg-gradient-to-br from-slate-900 to-slate-950 border ${themeStyles.cardBorder} rounded-2xl p-6 shadow-xl text-center`}>
               <span className="text-xs uppercase tracking-wider text-amber-400 font-bold">Mode Focus & Productivité</span>
               <div className="text-4xl md:text-5xl font-black text-white font-mono my-3">
@@ -525,7 +721,6 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Barre de Sons d'Ambiance VIP */}
               <div className="mt-6 pt-5 border-t border-slate-800/80 max-w-md mx-auto">
                 <div className="flex items-center justify-center gap-2 text-xs font-semibold text-amber-400 mb-3">
                   {ambientSound !== 'none' ? <Volume2 className="w-4 h-4 animate-pulse" /> : <VolumeX className="w-4 h-4 text-slate-500" />}
@@ -553,7 +748,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Gestionnaire d'habitudes */}
             <div className={`bg-slate-900 border ${themeStyles.cardBorder} rounded-2xl p-6 shadow-xl space-y-6`}>
               <div>
                 <h2 className="text-xl font-bold flex items-center gap-2 text-white">
@@ -730,7 +924,7 @@ export default function App() {
               <h2 className="text-2xl font-bold text-white">Espace VIP PRO LifeSync</h2>
               <p className="text-slate-400 text-sm mt-2">
                 {isVip 
-                  ? "Votre accès VIP PRO est actif : Thèmes exclusifs, Coach IA Stratégique et Sons Focus débloqués." 
+                  ? "Votre accès VIP PRO est actif : Thèmes exclusifs, Coach IA Stratégique, Défis illimités et Sons Focus débloqués." 
                   : "Passez au niveau supérieur avec les thèmes exclusifs, l'audio d'ambiance Focus et le Coach IA."}
               </p>
             </div>
@@ -742,8 +936,9 @@ export default function App() {
                 <ul className="text-xs text-slate-300 space-y-1.5 text-left max-w-xs mx-auto pt-2">
                   <li>✨ Sélecteur de thèmes (Cyber Gold & Émeraude Zen)</li>
                   <li>🧠 Module Coach IA Stratégique en temps réel</li>
+                  <li>🎯 Changement illimité des Défis du jour express</li>
                   <li>🌧️ Sons d'ambiance pluie & cascade dans Lifestyle</li>
-                  <li>♾️ Création d'habitudes illimitée</li>
+                  <li>📅 Historique de bilans étendu (30 jours) & habitudes illimitées</li>
                 </ul>
               </div>
             ) : (
@@ -751,54 +946,3 @@ export default function App() {
                 <div className="bg-slate-950/60 border border-slate-800 p-5 rounded-xl space-y-3">
                   <h3 className="font-semibold text-sm text-white flex items-center gap-2">
                     <Zap className="w-4 h-4 text-amber-400" /> Étape 1 : Obtenir le sésame (4,99 € à vie)
-                  </h3>
-                  <p className="text-xs text-slate-400">Effectuez votre paiement sur Ko-fi pour recevoir instantanément votre code secret.</p>
-                  <a 
-                    href={PREMIUM_PAYMENT_LINK}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block w-full text-center bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold py-3 rounded-xl text-sm transition-all shadow-md"
-                  >
-                    Accéder à la page de paiement Ko-fi
-                  </a>
-                </div>
-
-                <div className="bg-slate-950/60 border border-slate-800 p-5 rounded-xl space-y-3">
-                  <h3 className="font-semibold text-sm text-white flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-indigo-400" /> Étape 2 : Activer mon code secret
-                  </h3>
-                  <form onSubmit={handleActivateVip} className="space-y-3">
-                    <input 
-                      type="text" 
-                      placeholder="Entrez votre code (ex: LIFESYNC2026)" 
-                      value={secretInput}
-                      onChange={(e) => setSecretInput(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
-                    />
-                    <button 
-                      type="submit"
-                      className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl text-sm transition-all shadow-md shadow-indigo-600/20"
-                    >
-                      Activer mon accès VIP
-                    </button>
-                  </form>
-
-                  {activationError && (
-                    <p className="text-xs text-rose-400 text-center">Code incorrect. Vérifiez le message reçu après votre achat.</p>
-                  )}
-                  {activationSuccess && (
-                    <p className="text-xs text-emerald-400 text-center">Code validé avec succès !</p>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </main>
-
-      <footer className="max-w-6xl mx-auto px-4 mt-16 pt-6 border-t border-slate-900 text-center text-xs text-slate-400">
-        <p>© 2026 LifeSync. Tous droits réservés. Propulsé par React & Ko-fi.</p>
-      </footer>
-    </div>
-  );
-}
